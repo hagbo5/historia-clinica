@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% include 'navbar.html' %}
+{% block content %}
+<div class="container mt-5">
+  <h2>Historias de {{ paciente.nombre }}</h2>
+  <a href="{{ url_for('nueva_historia', paciente_id=paciente.id) }}" class="btn btn-primary mb-3">
+    + Nueva Historia
+  </a>
+  <table class="table table-striped table-hover">
+    <thead class="table-primary">
+      <tr>
+        <th>Fecha</th>
+        <th>Motivo</th>
+        <th>Diagnóstico</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for historia in paciente.historias %}
+      <tr>
+        <td>{{ historia.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
+        <td>{{ historia.motivo }}</td>
+        <td>{{ historia.diagnostico }}</td>
+        <td>
+          <a href="{{ url_for('ver_historia', id=historia.id) }}" class="btn btn-sm btn-info">Ver</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

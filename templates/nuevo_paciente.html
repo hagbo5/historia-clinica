@@ -1,0 +1,38 @@
+{% include 'navbar.html' %}
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="card shadow p-4 mx-auto" style="max-width: 500px;">
+    <h3 class="text-center mb-4">Nuevo Paciente</h3>
+    <form method="POST" action="{{ url_for('nuevo_paciente') }}">
+      <div class="mb-3">
+        <label for="nombre" class="form-label">Nombre</label>
+        <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Nombre completo" required>
+      </div>
+      <div class="mb-3">
+        <label for="edad" class="form-label">Edad</label>
+        <input type="number" class="form-control" id="edad" name="edad" placeholder="Edad" required>
+      </div>
+      <div class="mb-3">
+        <label for="documento" class="form-label">Documento</label>
+        <input type="text" class="form-control" id="documento" name="documento" placeholder="Número de documento" required>
+      </div>
+      <div class="mb-3">
+        <label for="telefono" class="form-label">Teléfono</label>
+        <input type="text" class="form-control" id="telefono" name="telefono" placeholder="Teléfono">
+      </div>
+      <div class="mb-3">
+        <label for="direccion" class="form-label">Dirección</label>
+        <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Dirección">
+      </div>
+      <div class="mb-3">
+        <label for="correo" class="form-label">Correo electrónico</label>
+        <input type="email" class="form-control" id="correo" name="correo" placeholder="Email">
+      </div>
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary">Registrar Paciente</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

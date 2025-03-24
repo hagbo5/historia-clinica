@@ -1,0 +1,93 @@
+<!-- templates/home.html -->
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panel Dermatológico</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="container py-5">
+    <div class="row text-center justify-content-center">
+
+        <!-- Pacientes -->
+        <div class="col-md-3 col-sm-6">
+            <a href="{{ url_for('pacientes') }}"class="option-btn">
+                <img src="{{ url_for('static', filename='images/pacientes.png') }}">
+                <div>Pacientes</div>
+            </a>
+        </div>
+
+        <!-- Historias Clínicas -->
+        <div class="col-md-3 col-sm-6">
+            <a href="#" class="option-btn">
+                <img src="{{ url_for('static', filename='images/historia.png') }}">
+                <div>Historias Clínicas</div>
+            </a>
+        </div>
+
+        <!-- Citas -->
+        <div class="col-md-3 col-sm-6">
+            <a href="#" class="option-btn">
+                <img src="{{ url_for('static', filename='images/citas.png') }}">
+                <div>Citas</div>
+            </a>
+        </div>
+
+        <!-- Diagnósticos -->
+        <div class="col-md-3 col-sm-6">
+            <a href="#" class="option-btn">
+                <img src="{{ url_for('static', filename='images/diagnosticos.png') }}">
+                <div>Diagnósticos</div>
+            </a>
+        </div>
+
+        <!-- Tratamientos -->
+        <div class="col-md-3 col-sm-6">
+            <a href="#" class="option-btn">
+                <img src="{{ url_for('static', filename='images/tratamientos.png') }}">
+                <div>Tratamientos</div>
+            </a>
+        </div>
+
+        <!-- Facturación -->
+        <div class="col-md-3 col-sm-6">
+            <a href="#" class="option-btn">
+                <img src="{{ url_for('static', filename='images/facturacion.png') }}">
+                <div>Facturación</div>
+            </a>
+        </div>
+
+        <!-- Usuarios -->
+        <div class="col-md-3 col-sm-6">
+            <a href="#" class="option-btn">
+                <img src="{{ url_for('static', filename='images/usuarios.png') }}">
+                <div>Usuarios</div>
+            </a>
+        </div>
+
+        <!-- Ayuda -->
+        <div class="col-md-3 col-sm-6">
+            <a href="#" class="option-btn">
+                <img src="{{ url_for('static', filename='images/ayuda.png') }}">
+                <div>Ayuda</div>
+            </a>
+        </div>
+
+    </div>
+</div>
+
+<footer class="bg-dark text-white py-3 fixed-bottom">
+    <div class="container text-center">
+        <small>© 2025 Historias Clínicas Dermatológicas</small>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

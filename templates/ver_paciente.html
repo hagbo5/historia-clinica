@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% include 'navbar.html' %}
+{% block content %}
+<div class="container mt-5">
+  <h2>Detalles del Paciente</h2>
+  <p><strong>Nombre:</strong> {{ paciente.nombre }}</p>
+  <p><strong>Edad:</strong> {{ paciente.edad }}</p>
+  <p><strong>Documento:</strong> {{ paciente.documento }}</p>
+  <p><strong>Teléfono:</strong> {{ paciente.telefono }}</p>
+  <p><strong>Dirección:</strong> {{ paciente.direccion }}</p>
+  <p><strong>Correo:</strong> {{ paciente.correo }}</p>
+  <a href="{{ url_for('pacientes') }}" class="btn btn-secondary">Volver a Pacientes</a>
+</div>
+{% endblock %}

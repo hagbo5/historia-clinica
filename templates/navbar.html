@@ -1,0 +1,58 @@
+<!-- templates/navbar.html -->
+<nav class="navbar navbar-expand bg-primary fixed-top">
+  <div class="container-fluid">
+    <!-- Marca / Logo -->
+    <a class="navbar-brand text-white fw-bold" href="{{ url_for('home') }}">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" width="30" height="30" alt="Logo" class="me-2">
+      Panel
+    </a>
+    <!-- Menú principal siempre visible -->
+    <div class="navbar-nav ms-auto">
+      <a class="nav-link text-white" href="{{ url_for('pacientes') }}">
+        <i class="bi bi-person-fill"></i> Pacientes
+      </a>
+      <a class="nav-link text-white" href="#">
+        <i class="bi bi-calendar-check-fill"></i> Citas
+      </a>
+
+      <!-- Dropdown sin toggler -->
+      <div class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle text-white" href="#" id="listados" role="button" data-bs-toggle="dropdown">
+          <i class="bi bi-list-task"></i> Listados
+        </a>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item" href="#">Diagnósticos</a></li>
+          <li><a class="dropdown-item" href="#">Tratamientos</a></li>
+        </ul>
+      </div>
+
+      <a class="nav-link text-white" href="#">
+        <i class="bi bi-house-fill"></i> Clínica
+      </a>
+      <a class="nav-link text-white" href="#">
+        <i class="bi bi-question-circle-fill"></i> Ayuda
+      </a>
+
+      {% if current_user.is_authenticated %}
+      <!-- Menú de usuario -->
+      <div class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle text-white" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+          {{ current_user.username }}
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+          <li><a class="dropdown-item" href="#">Perfil</a></li>
+          <li><a class="dropdown-item" href="#">Configuración</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="{{ url_for('logout') }}">Cerrar sesión</a></li>
+        </ul>
+      </div>
+      {% else %}
+      <a class="nav-link text-white" href="{{ url_for('login') }}">
+        <i class="bi bi-door-open-fill"></i> Iniciar sesión
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+  

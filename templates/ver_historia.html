@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% include 'navbar.html' %}
+{% block content %}
+<div class="container mt-5">
+  <h2>Historia Clínica</h2>
+  <hr>
+  <div class="mb-3">
+    <strong>Paciente:</strong> {{ historia.paciente.nombre }}
+  </div>
+  <div class="mb-3">
+    <strong>Fecha:</strong> {{ historia.fecha.strftime('%d/%m/%Y %H:%M') }}
+  </div>
+  <div class="mb-3">
+    <strong>Motivo:</strong> {{ historia.motivo }}
+  </div>
+  <div class="mb-3">
+    <strong>Diagnóstico:</strong> {{ historia.diagnostico }}
+  </div>
+  <div class="mb-3">
+    <strong>Tratamiento:</strong> {{ historia.tratamiento }}
+  </div>
+  <div class="mb-3">
+    <strong>Observaciones:</strong> {{ historia.observaciones }}
+  </div>
+  <a href="{{ url_for('listar_historias', paciente_id=historia.paciente.id) }}" class="btn btn-secondary">
+    Volver
+  </a>
+</div>
+{% endblock %}

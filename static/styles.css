@@ -1,0 +1,119 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+}
+
+.container {
+    margin-top: 50px;
+}
+
+h1 {
+    color: #333;
+}
+
+.btn {
+    margin-right: 10px;
+}
+
+body {
+    background-color: #f5faff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin-bottom: 80px; /* para que no se superponga con el footer */
+}
+
+.option-btn {
+    display: block;
+    height: 130px;
+    padding: 15px;
+    font-size: 16px;
+    text-align: center;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    margin-bottom: 20px;
+    transition: 0.3s;
+    text-decoration: none;
+    color: black;
+}
+
+.option-btn:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    transform: translateY(-5px);
+}
+
+.option-btn img {
+    width: 50px;
+    margin-bottom: 8px;
+}
+
+
+
+/* Estilos para la barra de navegación */
+
+body {
+    padding-top: 80px; /* Ajusta según la altura real de tu navbar */
+  }
+  
+.navbar {
+    background: linear-gradient(45deg, #1859c9, #1447a6) !important;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-brand img {
+    margin-right: 10px;
+    border-radius: 50%;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
+.navbar-nav .nav-link {
+    color: #fff !important;
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link:focus {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    color: #fff !important;
+}
+
+.navbar-nav .nav-link.active {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    color: #fff !important;
+}
+
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dropdown-menu .dropdown-item {
+    color: #333;
+    padding: 0.5rem 1rem;
+}
+
+.dropdown-menu .dropdown-item:hover {
+    background-color: #f0f5ff;
+    color: #1447a6;
+}
+
+h2 {
+    font-weight: 600;
+    color: #1859c9;
+  }
+  
+  .table-hover tbody tr:hover {
+    background-color: #f0f7ff;
+  }
+  
