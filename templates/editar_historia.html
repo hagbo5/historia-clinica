@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% include 'navbar.html' %}
+{% block content %}
+<div class="container mt-5">
+  <div class="card shadow p-4 mx-auto" style="max-width: 600px;">
+    <h3 class="text-center mb-4">Editar Historia Clínica</h3>
+    <form method="POST" action="{{ url_for('editar_historia', paciente_id=paciente.id, historia_id=historia.id) }}">
+      <div class="mb-3">
+        <label for="motivo" class="form-label">Motivo de consulta</label>
+        <input type="text" class="form-control" id="motivo" name="motivo" value="{{ historia.motivo }}" required>
+      </div>
+      <div class="mb-3">
+        <label for="diagnostico" class="form-label">Diagnóstico</label>
+        <input type="text" class="form-control" id="diagnostico" name="diagnostico" value="{{ historia.diagnostico }}">
+      </div>
+      <div class="mb-3">
+        <label for="tratamiento" class="form-label">Tratamiento</label>
+        <input type="text" class="form-control" id="tratamiento" name="tratamiento" value="{{ historia.tratamiento }}">
+      </div>
+      <div class="mb-3">
+        <label for="observaciones" class="form-label">Observaciones</label>
+        <textarea class="form-control" id="observaciones" name="observaciones" rows="4">{{ historia.observaciones }}</textarea>
+      </div>
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary">Actualizar Historia</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

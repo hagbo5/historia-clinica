@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'navbar.html' %}
+<div class="container mt-5 pt-5">
+    <h2>Detalles de la Cita</h2>
+    <p><strong>Paciente:</strong> {{ cita.paciente_cita.nombre }}</p> {# Assuming backref is 'paciente_cita' #}
+    <p><strong>Fecha y Hora:</strong> {{ cita.fecha_hora.strftime('%Y-%m-%d %H:%M') }}</p>
+    <p><strong>Motivo:</strong> {{ cita.motivo }}</p>
+    <p><strong>Notas:</strong> {{ cita.notas if cita.notas else 'N/A' }}</p>
+    <a href="{{ url_for('editar_cita', cita_id=cita.id) }}" class="btn btn-warning">Editar</a>
+    <a href="{{ url_for('listar_citas_paciente', paciente_id=cita.paciente_id) }}" class="btn btn-secondary">Volver a Citas del Paciente</a>
+</div>
+{% endblock %}

@@ -1,9 +1,10 @@
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from models import db, User, Paciente, HistoriaClinica  # Asegúrate de importar User desde models.py
+from models import db, User, Paciente, HistoriaClinica, Cita # Asegúrate de importar User desde models.py
 from models import Paciente
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -197,8 +198,118 @@ def ver_historia(id):
     return render_template('ver_historia.html', historia=historia)
 
 
+@app.route('/pacientes/<int:paciente_id>/historias/<int:historia_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_historia(paciente_id, historia_id):
+    historia = HistoriaClinica.query.get_or_404(historia_id)
+    paciente = Paciente.query.get_or_404(paciente_id)
+    if request.method == 'POST':
+        historia.motivo = request.form['motivo']
+        historia.diagnostico = request.form.get('diagnostico')
+        historia.tratamiento = request.form.get('tratamiento')
+        historia.observaciones = request.form.get('observaciones')
+        try:
+            db.session.commit()
+            flash('Historia clínica actualizada correctamente.')
+        except Exception as e:
+            db.session.rollback()
+            flash('Ocurrió un error al actualizar la historia clínica.')
+        return redirect(url_for('listar_historias', paciente_id=paciente_id))
+    return render_template('editar_historia.html', historia=historia, paciente=paciente)
 
 
+@app.route('/pacientes/<int:paciente_id>/historias/<int:historia_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_historia(paciente_id, historia_id):
+    historia = HistoriaClinica.query.get_or_404(historia_id)
+    try:
+        db.session.delete(historia)
+        db.session.commit()
+        flash('Historia clínica eliminada correctamente.')
+    except Exception as e:
+        db.session.rollback()
+        flash('Ocurrió un error al eliminar la historia clínica.')
+    return redirect(url_for('listar_historias', paciente_id=paciente_id))
+
+
+@app.route('/citas')
+@login_required
+def citas():
+    todas_las_citas = Cita.query.order_by(Cita.fecha_hora.desc()).all()
+    return render_template('citas.html', citas=todas_las_citas)
+
+
+@app.route('/pacientes/<int:paciente_id>/citas/nueva', methods=['GET', 'POST'])
+@login_required
+def nueva_cita_paciente(paciente_id):
+    paciente = Paciente.query.get_or_404(paciente_id)
+    if request.method == 'POST':
+        fecha_hora_str = request.form['fecha_hora']
+        motivo = request.form['motivo']
+        notas = request.form.get('notas')
+        
+        try:
+            fecha_hora = datetime.strptime(fecha_hora_str, '%Y-%m-%dT%H:%M')
+        except ValueError:
+            flash('Formato de fecha y hora inválido. Use YYYY-MM-DDTHH:MM.')
+            return render_template('nueva_cita.html', paciente=paciente, cita=None)
+
+        nueva = Cita(paciente_id=paciente.id, fecha_hora=fecha_hora, motivo=motivo, notas=notas)
+        db.session.add(nueva)
+        db.session.commit()
+        flash('Cita creada correctamente.')
+        return redirect(url_for('listar_citas_paciente', paciente_id=paciente.id))
+    return render_template('nueva_cita.html', paciente=paciente, cita=None)
+
+
+@app.route('/pacientes/<int:paciente_id>/citas')
+@login_required
+def listar_citas_paciente(paciente_id):
+    paciente = Paciente.query.get_or_404(paciente_id)
+    return render_template('paciente_citas.html', paciente=paciente, citas=paciente.citas)
+
+
+@app.route('/citas/<int:cita_id>')
+@login_required
+def ver_cita(cita_id):
+    cita = Cita.query.get_or_404(cita_id)
+    return render_template('ver_cita.html', cita=cita)
+
+
+@app.route('/citas/<int:cita_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_cita(cita_id):
+    cita = Cita.query.get_or_404(cita_id)
+    paciente = Paciente.query.get_or_404(cita.paciente_id)
+    if request.method == 'POST':
+        fecha_hora_str = request.form['fecha_hora']
+        try:
+            cita.fecha_hora = datetime.strptime(fecha_hora_str, '%Y-%m-%dT%H:%M')
+        except ValueError:
+            flash('Formato de fecha y hora inválido. Use YYYY-MM-DDTHH:MM.')
+            return render_template('nueva_cita.html', cita=cita, paciente=paciente)
+
+        cita.motivo = request.form['motivo']
+        cita.notas = request.form.get('notas')
+        db.session.commit()
+        flash('Cita actualizada correctamente.')
+        return redirect(url_for('ver_cita', cita_id=cita.id))
+    return render_template('nueva_cita.html', cita=cita, paciente=paciente)
+
+
+@app.route('/citas/<int:cita_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_cita(cita_id):
+    cita = Cita.query.get_or_404(cita_id)
+    paciente_id = cita.paciente_id
+    db.session.delete(cita)
+    db.session.commit()
+    flash('Cita eliminada correctamente.')
+    paciente = Paciente.query.get(paciente_id)
+    if paciente:
+        return redirect(url_for('listar_citas_paciente', paciente_id=paciente_id))
+    else:
+        return redirect(url_for('citas'))
 
 
 # Aquí puedes añadir más rutas y lógica para tu aplicación

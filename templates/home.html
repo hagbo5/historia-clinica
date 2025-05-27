@@ -25,7 +25,7 @@
 
         <!-- Historias Clínicas -->
         <div class="col-md-3 col-sm-6">
-            <a href="#" class="option-btn">
+            <a href="{{ url_for('pacientes') }}" class="option-btn">
                 <img src="{{ url_for('static', filename='images/historia.png') }}">
                 <div>Historias Clínicas</div>
             </a>
@@ -33,7 +33,7 @@
 
         <!-- Citas -->
         <div class="col-md-3 col-sm-6">
-            <a href="#" class="option-btn">
+            <a href="{{ url_for('citas') }}" class="option-btn">
                 <img src="{{ url_for('static', filename='images/citas.png') }}">
                 <div>Citas</div>
             </a>

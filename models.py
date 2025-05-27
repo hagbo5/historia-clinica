@@ -27,6 +27,7 @@ class Paciente(db.Model):
     correo = db.Column(db.String(120))
 
     historias = db.relationship('HistoriaClinica', backref='paciente', lazy=True)
+    citas = db.relationship('Cita', backref='paciente_cita', lazy=True, cascade="all, delete-orphan")
 
 class HistoriaClinica(db.Model):
     __tablename__ = 'historia_clinica'
@@ -38,4 +39,17 @@ class HistoriaClinica(db.Model):
     observaciones = db.Column(db.Text, nullable=True)
 
     # Clave foránea que relaciona con el paciente
-    paciente_id = db.Column(db.Integer, db.ForeignKey('paciente.id'), nullable=False)  
+    paciente_id = db.Column(db.Integer, db.ForeignKey('paciente.id'), nullable=False)
+
+
+class Cita(db.Model):
+    __tablename__ = 'cita'
+    id = db.Column(db.Integer, primary_key=True)
+    paciente_id = db.Column(db.Integer, db.ForeignKey('paciente.id'), nullable=False)
+    fecha_hora = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # Add default for now
+    motivo = db.Column(db.String(255), nullable=False)
+    notas = db.Column(db.Text, nullable=True)
+
+    # Consider adding a relationship to Paciente if needed for easy access from Cita to Paciente details
+    # paciente = db.relationship('Paciente', backref=db.backref('citas_paciente', lazy=True)) 
+    # The backref on Paciente model will handle the other side.
