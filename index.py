@@ -1,9 +1,10 @@
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from models import db, User, Paciente, HistoriaClinica  # Asegúrate de importar User desde models.py
+from models import db, User, Paciente, HistoriaClinica, Cita, Diagnostico, Tratamiento, Factura, ItemFactura # Asegúrate de importar User desde models.py
 from models import Paciente
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -18,6 +19,50 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# --- Helper Functions for Invoicing ---
+def get_next_invoice_number():
+    current_year = datetime.utcnow().year
+    prefix = f"INV-{current_year}-"
+    
+    # Find the last invoice for the current year
+    last_invoice_for_year = Factura.query.filter(Factura.numero_factura.like(f"{prefix}%")) \
+                                       .order_by(Factura.numero_factura.desc()).first()
+    
+    next_number = 1
+    if last_invoice_for_year:
+        try:
+            # Extract the numeric part and increment
+            last_numeric_part = int(last_invoice_for_year.numero_factura.split('-')[-1])
+            next_number = last_numeric_part + 1
+        except (ValueError, IndexError):
+            # Fallback: if parsing fails, count existing invoices for the year and add 1
+            # This is a simplified fallback. A more robust solution might involve a dedicated sequence.
+            all_year_invoices_count = Factura.query.filter(Factura.numero_factura.like(f"{prefix}%")).count()
+            next_number = all_year_invoices_count + 1
+
+    return f"{prefix}{next_number:04d}" # Ensures 4-digit padding
+
+def calculate_and_update_invoice_total(factura_id):
+    factura = Factura.query.get(factura_id) 
+    if not factura:
+        # Log or handle error: Factura not found
+        print(f"Error: Factura with ID {factura_id} not found for total calculation.")
+        return
+
+    new_total = sum(float(item.subtotal) for item in factura.items)
+    factura.total = round(new_total, 2)
+    
+    try:
+        db.session.add(factura) # Ensure factura is part of the session for update
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        # Consider logging this error more formally
+        print(f"Error calculating/updating total for factura {factura.id}: {e}")
+        # Depending on context, might re-raise or flash a message if called from a route
+
+# --- End Helper Functions ---
 
 @app.route('/')
 def inicio():
@@ -164,31 +209,49 @@ def eliminar_paciente(id):
 @login_required
 def listar_historias(paciente_id):
     paciente = Paciente.query.get_or_404(paciente_id)
-    # paciente.historias -> lista de historias asociadas
     return render_template('listar_historias.html', paciente=paciente)
 
 @app.route('/pacientes/<int:paciente_id>/historias/nuevo', methods=['GET', 'POST'])
 @login_required
 def nueva_historia(paciente_id):
     paciente = Paciente.query.get_or_404(paciente_id)
+    diagnosticos_catalogo = Diagnostico.query.order_by(Diagnostico.descripcion).all()
+    tratamientos_catalogo = Tratamiento.query.order_by(Tratamiento.descripcion).all()
+    
     if request.method == 'POST':
         motivo = request.form['motivo']
-        diagnostico = request.form.get('diagnostico')
-        tratamiento = request.form.get('tratamiento')
         observaciones = request.form.get('observaciones')
+        
+        selected_diag_ids = request.form.getlist('diagnosticos_seleccionados')
+        selected_diagnosticos = []
+        if selected_diag_ids:
+            selected_diagnosticos = Diagnostico.query.filter(Diagnostico.id.in_([int(id_str) for id_str in selected_diag_ids])).all()
 
-        nueva = HistoriaClinica(
+        selected_trat_ids = request.form.getlist('tratamientos_seleccionados')
+        selected_tratamientos = []
+        if selected_trat_ids:
+            selected_tratamientos = Tratamiento.query.filter(Tratamiento.id.in_([int(id_str) for id_str in selected_trat_ids])).all()
+
+        nueva_historia_obj = HistoriaClinica(
             motivo=motivo,
-            diagnostico=diagnostico,
-            tratamiento=tratamiento,
             observaciones=observaciones,
             paciente_id=paciente.id
         )
-        db.session.add(nueva)
-        db.session.commit()
-        flash('Historia creada correctamente.')
-        return redirect(url_for('listar_historias', paciente_id=paciente.id))
-    return render_template('nueva_historia.html', paciente=paciente)
+        
+        db.session.add(nueva_historia_obj)
+        
+        nueva_historia_obj.diagnosticos = selected_diagnosticos
+        nueva_historia_obj.tratamientos = selected_tratamientos
+        
+        try:
+            db.session.commit() 
+            flash('Historia creada correctamente.', 'success')
+            return redirect(url_for('listar_historias', paciente_id=paciente.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al crear la historia: {e}', 'danger')
+            
+    return render_template('nueva_historia.html', paciente=paciente, diagnosticos_catalogo=diagnosticos_catalogo, tratamientos_catalogo=tratamientos_catalogo)
 
 @app.route('/historias/<int:id>')
 @login_required
@@ -197,9 +260,445 @@ def ver_historia(id):
     return render_template('ver_historia.html', historia=historia)
 
 
+@app.route('/pacientes/<int:paciente_id>/historias/<int:historia_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_historia(paciente_id, historia_id): 
+    historia = HistoriaClinica.query.get_or_404(historia_id)
+    paciente = Paciente.query.get_or_404(historia.paciente_id) 
+    diagnosticos_catalogo = Diagnostico.query.order_by(Diagnostico.descripcion).all()
+    tratamientos_catalogo = Tratamiento.query.order_by(Tratamiento.descripcion).all()
+
+    if request.method == 'POST':
+        historia.motivo = request.form['motivo']
+        historia.observaciones = request.form.get('observaciones')
+        
+        selected_diag_ids = request.form.getlist('diagnosticos_seleccionados')
+        selected_diagnosticos = []
+        if selected_diag_ids:
+            selected_diagnosticos = Diagnostico.query.filter(Diagnostico.id.in_([int(id_str) for id_str in selected_diag_ids])).all()
+        historia.diagnosticos = selected_diagnosticos
+        
+        selected_trat_ids = request.form.getlist('tratamientos_seleccionados')
+        selected_tratamientos = []
+        if selected_trat_ids:
+            selected_tratamientos = Tratamiento.query.filter(Tratamiento.id.in_([int(id_str) for id_str in selected_trat_ids])).all()
+        historia.tratamientos = selected_tratamientos
+        
+        try:
+            db.session.commit()
+            flash('Historia clínica actualizada correctamente.', 'success')
+            return redirect(url_for('listar_historias', paciente_id=historia.paciente_id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ocurrió un error al actualizar la historia clínica: {e}', 'danger')
+            
+    return render_template('editar_historia.html', historia=historia, paciente=paciente, diagnosticos_catalogo=diagnosticos_catalogo, tratamientos_catalogo=tratamientos_catalogo)
 
 
+@app.route('/pacientes/<int:paciente_id>/historias/<int:historia_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_historia(paciente_id, historia_id):
+    historia = HistoriaClinica.query.get_or_404(historia_id)
+    try:
+        db.session.delete(historia)
+        db.session.commit()
+        flash('Historia clínica eliminada correctamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ocurrió un error al eliminar la historia clínica: {e}', 'danger')
+    return redirect(url_for('listar_historias', paciente_id=paciente_id))
 
+
+@app.route('/citas')
+@login_required
+def citas():
+    todas_las_citas = Cita.query.order_by(Cita.fecha_hora.desc()).all()
+    return render_template('citas.html', citas=todas_las_citas)
+
+
+@app.route('/pacientes/<int:paciente_id>/citas/nueva', methods=['GET', 'POST'])
+@login_required
+def nueva_cita_paciente(paciente_id):
+    paciente = Paciente.query.get_or_404(paciente_id)
+    if request.method == 'POST':
+        fecha_hora_str = request.form['fecha_hora']
+        motivo = request.form['motivo']
+        notas = request.form.get('notas')
+        
+        try:
+            fecha_hora = datetime.strptime(fecha_hora_str, '%Y-%m-%dT%H:%M')
+        except ValueError:
+            flash('Formato de fecha y hora inválido. Use YYYY-MM-DDTHH:MM.', 'danger')
+            return render_template('nueva_cita.html', paciente=paciente, cita=None)
+
+        nueva = Cita(paciente_id=paciente.id, fecha_hora=fecha_hora, motivo=motivo, notas=notas)
+        db.session.add(nueva)
+        db.session.commit()
+        flash('Cita creada correctamente.', 'success')
+        return redirect(url_for('listar_citas_paciente', paciente_id=paciente.id))
+    return render_template('nueva_cita.html', paciente=paciente, cita=None)
+
+
+@app.route('/pacientes/<int:paciente_id>/citas')
+@login_required
+def listar_citas_paciente(paciente_id):
+    paciente = Paciente.query.get_or_404(paciente_id)
+    return render_template('paciente_citas.html', paciente=paciente, citas=paciente.citas)
+
+
+@app.route('/citas/<int:cita_id>')
+@login_required
+def ver_cita(cita_id):
+    cita = Cita.query.get_or_404(cita_id)
+    return render_template('ver_cita.html', cita=cita)
+
+
+@app.route('/citas/<int:cita_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_cita(cita_id):
+    cita = Cita.query.get_or_404(cita_id)
+    paciente = Paciente.query.get_or_404(cita.paciente_id)
+    if request.method == 'POST':
+        fecha_hora_str = request.form['fecha_hora']
+        try:
+            cita.fecha_hora = datetime.strptime(fecha_hora_str, '%Y-%m-%dT%H:%M')
+        except ValueError:
+            flash('Formato de fecha y hora inválido. Use YYYY-MM-DDTHH:MM.', 'danger')
+            return render_template('nueva_cita.html', cita=cita, paciente=paciente)
+
+        cita.motivo = request.form['motivo']
+        cita.notas = request.form.get('notas')
+        db.session.commit()
+        flash('Cita actualizada correctamente.', 'success')
+        return redirect(url_for('ver_cita', cita_id=cita.id))
+    return render_template('nueva_cita.html', cita=cita, paciente=paciente)
+
+
+@app.route('/citas/<int:cita_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_cita(cita_id):
+    cita = Cita.query.get_or_404(cita_id)
+    paciente_id = cita.paciente_id
+    db.session.delete(cita)
+    db.session.commit()
+    flash('Cita eliminada correctamente.', 'success')
+    paciente = Paciente.query.get(paciente_id)
+    if paciente:
+        return redirect(url_for('listar_citas_paciente', paciente_id=paciente_id))
+    else:
+        return redirect(url_for('citas'))
+
+@app.route('/diagnosticos')
+@login_required
+def diagnosticos_list():
+    diagnosticos = Diagnostico.query.order_by(Diagnostico.codigo).all()
+    return render_template('diagnosticos.html', diagnosticos=diagnosticos)
+
+@app.route('/diagnosticos/nuevo', methods=['GET', 'POST'])
+@login_required
+def nuevo_diagnostico():
+    if request.method == 'POST':
+        codigo = request.form['codigo']
+        descripcion = request.form['descripcion']
+        
+        if Diagnostico.query.filter_by(codigo=codigo).first():
+            flash('El código de diagnóstico ya existe.', 'danger')
+            return render_template('nuevo_diagnostico.html', diagnostico=None, codigo=codigo, descripcion=descripcion)
+
+        nuevo = Diagnostico(codigo=codigo, descripcion=descripcion)
+        db.session.add(nuevo)
+        try:
+            db.session.commit()
+            flash('Diagnóstico creado correctamente.', 'success')
+            return redirect(url_for('diagnosticos_list'))
+        except IntegrityError: 
+            db.session.rollback()
+            flash('Error: El código de diagnóstico ya existe o hubo un problema.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ocurrió un error inesperado: {e}', 'danger')
+        
+    return render_template('nuevo_diagnostico.html', diagnostico=None)
+
+@app.route('/diagnosticos/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_diagnostico(id):
+    diag = Diagnostico.query.get_or_404(id)
+    if request.method == 'POST':
+        nuevo_codigo = request.form['codigo']
+        nueva_descripcion = request.form['descripcion']
+
+        if nuevo_codigo != diag.codigo and Diagnostico.query.filter_by(codigo=nuevo_codigo).first():
+            flash('El nuevo código de diagnóstico ya está en uso por otro diagnóstico.', 'danger')
+            return render_template('nuevo_diagnostico.html', diagnostico=diag)
+
+        diag.codigo = nuevo_codigo
+        diag.descripcion = nueva_descripcion
+        try:
+            db.session.commit()
+            flash('Diagnóstico actualizado correctamente.', 'success')
+            return redirect(url_for('diagnosticos_list'))
+        except IntegrityError: 
+            db.session.rollback()
+            flash('Error: El código de diagnóstico ya existe o hubo un problema con la actualización.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ocurrió un error inesperado: {e}', 'danger')
+            
+    return render_template('nuevo_diagnostico.html', diagnostico=diag)
+
+@app.route('/diagnosticos/<int:id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_diagnostico(id):
+    diag = Diagnostico.query.get_or_404(id)
+    if diag.historias_clinicas_associated.count() > 0:
+        flash('No se puede eliminar el diagnóstico porque está asociado a una o más historias clínicas.', 'danger')
+        return redirect(url_for('diagnosticos_list'))
+    
+    try:
+        db.session.delete(diag)
+        db.session.commit()
+        flash('Diagnóstico eliminado correctamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el diagnóstico: {e}', 'danger')
+    return redirect(url_for('diagnosticos_list'))
+
+@app.route('/tratamientos')
+@login_required
+def tratamientos_list():
+    tratamientos = Tratamiento.query.order_by(Tratamiento.codigo).all()
+    return render_template('tratamientos.html', tratamientos=tratamientos)
+
+@app.route('/tratamientos/nuevo', methods=['GET', 'POST'])
+@login_required
+def nuevo_tratamiento():
+    if request.method == 'POST':
+        codigo = request.form['codigo']
+        descripcion = request.form['descripcion']
+        costo_str = request.form.get('costo') 
+        
+        costo = None
+        if costo_str: 
+            try:
+                costo = float(costo_str) 
+            except ValueError:
+                flash('Costo inválido. Debe ser un número.', 'danger')
+                return render_template('nuevo_tratamiento.html', tratamiento=None, codigo=codigo, descripcion=descripcion, costo_str=costo_str)
+        
+        if Tratamiento.query.filter_by(codigo=codigo).first():
+            flash('El código de tratamiento ya existe.', 'danger')
+            return render_template('nuevo_tratamiento.html', tratamiento=None, codigo=codigo, descripcion=descripcion, costo_str=costo_str)
+
+        nuevo = Tratamiento(codigo=codigo, descripcion=descripcion, costo=costo)
+        db.session.add(nuevo)
+        try:
+            db.session.commit()
+            flash('Tratamiento creado correctamente.', 'success')
+            return redirect(url_for('tratamientos_list'))
+        except IntegrityError:
+            db.session.rollback()
+            flash('Error: El código de tratamiento ya existe.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ocurrió un error inesperado: {e}', 'danger')
+    return render_template('nuevo_tratamiento.html', tratamiento=None)
+
+@app.route('/tratamientos/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_tratamiento(id):
+    trat = Tratamiento.query.get_or_404(id)
+    if request.method == 'POST':
+        nuevo_codigo = request.form['codigo']
+        nueva_descripcion = request.form['descripcion']
+        costo_str = request.form.get('costo')
+
+        costo = None
+        if costo_str:
+            try:
+                costo = float(costo_str) 
+            except ValueError:
+                flash('Costo inválido. Debe ser un número.', 'danger')
+                return render_template('nuevo_tratamiento.html', tratamiento=trat)
+        
+        if nuevo_codigo != trat.codigo and Tratamiento.query.filter_by(codigo=nuevo_codigo).first():
+            flash('El nuevo código de tratamiento ya está en uso.', 'danger')
+            return render_template('nuevo_tratamiento.html', tratamiento=trat)
+
+        trat.codigo = nuevo_codigo
+        trat.descripcion = nueva_descripcion
+        trat.costo = costo
+        try:
+            db.session.commit()
+            flash('Tratamiento actualizado correctamente.', 'success')
+            return redirect(url_for('tratamientos_list'))
+        except IntegrityError:
+            db.session.rollback()
+            flash('Error: El código de tratamiento ya existe o hubo un problema.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ocurrió un error inesperado: {e}', 'danger')
+    return render_template('nuevo_tratamiento.html', tratamiento=trat)
+
+@app.route('/tratamientos/<int:id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_tratamiento(id):
+    trat = Tratamiento.query.get_or_404(id)
+    if trat.historias_clinicas_con_tratamiento.count() > 0: 
+        flash('No se puede eliminar el tratamiento, está asociado a historias clínicas.', 'danger')
+        return redirect(url_for('tratamientos_list'))
+    
+    try:
+        db.session.delete(trat)
+        db.session.commit()
+        flash('Tratamiento eliminado correctamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el tratamiento: {e}', 'danger')
+    return redirect(url_for('tratamientos_list'))
+
+# --- Invoice Routes ---
+@app.route('/facturas')
+@login_required
+def facturas_list():
+    invoices = Factura.query.order_by(Factura.fecha_emision.desc()).all()
+    return render_template('facturas.html', invoices=invoices)
+
+@app.route('/pacientes/<int:paciente_id>/facturas')
+@login_required
+def facturas_paciente_list(paciente_id):
+    paciente = Paciente.query.get_or_404(paciente_id)
+    invoices = paciente.facturas.order_by(Factura.fecha_emision.desc()).all()
+    return render_template('paciente_facturas.html', paciente=paciente, invoices=invoices)
+
+@app.route('/pacientes/<int:paciente_id>/facturas/nueva', methods=['GET', 'POST'])
+@login_required
+def nueva_factura_paciente(paciente_id):
+    paciente = Paciente.query.get_or_404(paciente_id)
+    if request.method == 'POST':
+        fecha_vencimiento_str = request.form.get('fecha_vencimiento')
+        fecha_vencimiento = None
+        if fecha_vencimiento_str:
+            try:
+                fecha_vencimiento = datetime.strptime(fecha_vencimiento_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Formato de fecha de vencimiento inválido. Use YYYY-MM-DD.', 'danger')
+                return render_template('nueva_factura_form.html', paciente=paciente)
+
+        nueva_factura = Factura(
+            paciente_id=paciente.id,
+            numero_factura=get_next_invoice_number(),
+            fecha_vencimiento=fecha_vencimiento
+        )
+        db.session.add(nueva_factura)
+        try:
+            db.session.commit()
+            flash('Factura creada. Ahora puede agregar ítems.', 'success')
+            return redirect(url_for('ver_factura', factura_id=nueva_factura.id)) 
+        except IntegrityError as e:
+            db.session.rollback()
+            flash(f'Error al crear la factura: Ya existe una factura con ese número o hubo otro problema de integridad. {e}', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ocurrió un error inesperado al crear la factura: {e}', 'danger')
+        
+    return render_template('nueva_factura_form.html', paciente=paciente)
+
+@app.route('/facturas/<int:factura_id>', methods=['GET']) 
+@login_required
+def ver_factura(factura_id):
+    factura = Factura.query.get_or_404(factura_id)
+    tratamientos_catalogo = Tratamiento.query.order_by(Tratamiento.descripcion).all() 
+    return render_template('ver_factura.html', factura=factura, tratamientos_catalogo=tratamientos_catalogo)
+
+@app.route('/facturas/<int:factura_id>/items/agregar', methods=['POST'])
+@login_required
+def agregar_item_factura(factura_id):
+    factura = Factura.query.get_or_404(factura_id)
+    
+    try:
+        descripcion = request.form['descripcion']
+        cantidad_str = request.form['cantidad']
+        precio_unitario_str = request.form['precio_unitario']
+        tratamiento_id_str = request.form.get('tratamiento_id')
+
+        if not descripcion:
+            flash('La descripción del ítem es obligatoria.', 'danger')
+            return redirect(url_for('ver_factura', factura_id=factura.id))
+
+        cantidad = int(cantidad_str)
+        precio_unitario = float(precio_unitario_str) 
+        
+        if cantidad <= 0 or precio_unitario < 0:
+            flash('Cantidad debe ser positiva y precio unitario no negativo.', 'danger')
+            return redirect(url_for('ver_factura', factura_id=factura.id))
+
+        tratamiento_id = None
+        if tratamiento_id_str and tratamiento_id_str != "":
+            tratamiento_id = int(tratamiento_id_str)
+            # If a tratamiento is selected, its cost could potentially override precio_unitario
+            # For now, using the manually entered/JS-populated price.
+            # selected_trat = Tratamiento.query.get(tratamiento_id)
+            # if selected_trat and selected_trat.costo is not None:
+            #     precio_unitario = float(selected_trat.costo)
+
+
+        nuevo_item = ItemFactura(
+            factura_id=factura.id,
+            descripcion=descripcion,
+            cantidad=cantidad,
+            precio_unitario=precio_unitario,
+            tratamiento_id=tratamiento_id
+        )
+        nuevo_item.calculate_subtotal() 
+        
+        db.session.add(nuevo_item)
+        db.session.commit() 
+        
+        calculate_and_update_invoice_total(factura.id) 
+        flash('Ítem agregado a la factura.', 'success')
+
+    except ValueError:
+        flash('Cantidad y Precio Unitario deben ser números válidos.', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al agregar ítem: {e}', 'danger')
+        
+    return redirect(url_for('ver_factura', factura_id=factura.id))
+
+@app.route('/facturas/items/<int:item_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_item_factura(item_id):
+    item = ItemFactura.query.get_or_404(item_id)
+    factura_id = item.factura_id
+    
+    try:
+        db.session.delete(item)
+        db.session.commit()
+        calculate_and_update_invoice_total(factura_id) 
+        flash('Ítem eliminado de la factura.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar ítem: {e}', 'danger')
+        
+    return redirect(url_for('ver_factura', factura_id=factura_id))
+
+@app.route('/facturas/<int:factura_id>/marcar_pagada', methods=['POST'])
+@login_required
+def marcar_factura_pagada(factura_id):
+    factura = Factura.query.get_or_404(factura_id)
+    if factura.estado == 'Pendiente': # Or any other states from which it can be marked paid
+        factura.estado = 'Pagada'
+        try:
+            db.session.add(factura) # Ensure it's in session
+            db.session.commit()
+            flash('Factura marcada como Pagada.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar estado de la factura: {e}', 'danger')
+    else:
+        flash('La factura no está en un estado que permita marcarla como pagada directamente.', 'warning')
+    return redirect(url_for('ver_factura', factura_id=factura.id))
 
 # Aquí puedes añadir más rutas y lógica para tu aplicación
 

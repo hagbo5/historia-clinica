@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'navbar.html' %}
+<div class="container mt-5 pt-5">
+    <h2>{% if tratamiento %}Editar Tratamiento{% else %}Agregar Nuevo Tratamiento{% endif %}</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category else 'info' }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for(request.endpoint, id=tratamiento.id if tratamiento else None) }}">
+        <div class="mb-3">
+            <label for="codigo" class="form-label">Código</label>
+            <input type="text" class="form-control" id="codigo" name="codigo" value="{{ tratamiento.codigo if tratamiento else (codigo if codigo else '') }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="descripcion" class="form-label">Descripción</label>
+            <textarea class="form-control" id="descripcion" name="descripcion" rows="3" required>{{ tratamiento.descripcion if tratamiento else (descripcion if descripcion else '') }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="costo" class="form-label">Costo Estimado</label>
+            <input type="number" step="0.01" class="form-control" id="costo" name="costo" value="{{ '%.2f'|format(tratamiento.costo) if tratamiento and tratamiento.costo is not none else (costo_str if costo_str else '') }}">
+        </div>
+        <button type="submit" class="btn btn-primary">{% if tratamiento %}Actualizar Tratamiento{% else %}Crear Tratamiento{% endif %}</button>
+        <a href="{{ url_for('tratamientos_list') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

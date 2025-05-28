@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'navbar.html' %}
+<div class="container mt-5 pt-5">
+    <h2>{% if cita %}Editar Cita{% else %}Nueva Cita para {{ paciente.nombre }}{% endif %}</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category if category != 'message' else 'info' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for(request.endpoint, paciente_id=paciente.id if paciente else cita.paciente_id, cita_id=cita.id if cita else None) }}">
+        <div class="mb-3">
+            <label for="fecha_hora" class="form-label">Fecha y Hora</label>
+            <input type="datetime-local" class="form-control" id="fecha_hora" name="fecha_hora" value="{{ cita.fecha_hora.strftime('%Y-%m-%dT%H:%M') if cita and cita.fecha_hora else '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="motivo" class="form-label">Motivo</label>
+            <input type="text" class="form-control" id="motivo" name="motivo" value="{{ cita.motivo if cita else '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="notas" class="form-label">Notas</label>
+            <textarea class="form-control" id="notas" name="notas" rows="3">{{ cita.notas if cita else '' }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">{% if cita %}Actualizar Cita{% else %}Crear Cita{% endif %}</button>
+        <a href="{{ url_for('listar_citas_paciente', paciente_id=paciente.id if paciente else cita.paciente_id) }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

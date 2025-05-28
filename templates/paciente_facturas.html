@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'navbar.html' %}
+<div class="container mt-5 pt-5">
+    <h3>Facturas de: {{ paciente.nombre }}</h3>
+    <a href="{{ url_for('ver_paciente', id=paciente.id) }}" class="btn btn-link btn-sm mb-2">Volver a Detalles del Paciente</a>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category else 'info' }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <a href="{{ url_for('nueva_factura_paciente', paciente_id=paciente.id) }}" class="btn btn-primary mb-3">Crear Nueva Factura para {{ paciente.nombre }}</a>
+    {% if invoices %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Número</th>
+                <th>Fecha Emisión</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for factura in invoices %}
+            <tr>
+                <td>{{ factura.numero_factura }}</td>
+                <td>{{ factura.fecha_emision.strftime('%Y-%m-%d') }}</td>
+                <td>{{ "%.2f"|format(factura.total) }}</td>
+                <td>{{ factura.estado }}</td>
+                <td>
+                    <a href="{{ url_for('ver_factura', factura_id=factura.id) }}" class="btn btn-info btn-sm">Ver/Editar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay facturas registradas para este paciente.</p>
+    {% endif %}
+</div>
+{% endblock %}

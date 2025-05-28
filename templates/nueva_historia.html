@@ -21,6 +21,24 @@
         <label for="observaciones" class="form-label">Observaciones</label>
         <textarea class="form-control" id="observaciones" name="observaciones" rows="4" placeholder="Ingrese observaciones adicionales"></textarea>
       </div>
+      <div class="mb-3">
+          <label for="diagnosticos_seleccionados" class="form-label">Diagnósticos Asociados (seleccione uno o más)</label>
+          <select multiple class="form-control" id="diagnosticos_seleccionados" name="diagnosticos_seleccionados" size="5">
+              {% for diag in diagnosticos_catalogo %}
+                  <option value="{{ diag.id }}">{{ diag.codigo }} - {{ diag.descripcion }}</option>
+              {% endfor %}
+          </select>
+          <small class="form-text text-muted">Mantenga presionada la tecla Ctrl (o Cmd en Mac) para seleccionar múltiples diagnósticos.</small>
+      </div>
+      <div class="mb-3">
+          <label for="tratamientos_seleccionados" class="form-label">Tratamientos Aplicados (seleccione uno o más)</label>
+          <select multiple class="form-control" id="tratamientos_seleccionados" name="tratamientos_seleccionados" size="5">
+              {% for trat in tratamientos_catalogo %}
+                  <option value="{{ trat.id }}">{{ trat.codigo }} - {{ trat.descripcion }}</option>
+              {% endfor %}
+          </select>
+          <small class="form-text text-muted">Mantenga presionada la tecla Ctrl (o Cmd en Mac) para seleccionar múltiples.</small>
+      </div>
       <div class="d-grid">
         <button type="submit" class="btn btn-primary">Guardar Historia</button>
       </div>

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'navbar.html' %}
+<div class="container mt-5 pt-5">
+    <h2>Citas para {{ paciente.nombre }}</h2>
+     {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category if category != 'message' else 'info' }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <a href="{{ url_for('nueva_cita_paciente', paciente_id=paciente.id) }}" class="btn btn-primary mb-3">Agendar Nueva Cita</a>
+    {% if citas %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Fecha y Hora</th>
+                <th>Motivo</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cita in citas %}
+            <tr>
+                <td>{{ cita.fecha_hora.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ cita.motivo }}</td>
+                <td>
+                    <a href="{{ url_for('ver_cita', cita_id=cita.id) }}" class="btn btn-info btn-sm">Ver</a>
+                    <a href="{{ url_for('editar_cita', cita_id=cita.id) }}" class="btn btn-warning btn-sm">Editar</a>
+                    <form action="{{ url_for('eliminar_cita', cita_id=cita.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Estás seguro?');">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No hay citas programadas para este paciente.</p>
+    {% endif %}
+    <a href="{{ url_for('ver_paciente', id=paciente.id) }}" class="btn btn-secondary mt-3">Volver al Paciente</a>
+</div>
+{% endblock %}

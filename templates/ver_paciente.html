@@ -10,5 +10,23 @@
   <p><strong>Dirección:</strong> {{ paciente.direccion }}</p>
   <p><strong>Correo:</strong> {{ paciente.correo }}</p>
   <a href="{{ url_for('pacientes') }}" class="btn btn-secondary">Volver a Pacientes</a>
+
+  <div class="mt-4">
+      <h4>Citas Programadas</h4>
+      {% if paciente.citas %}
+          <ul>
+          {% for cita in paciente.citas %}
+              <li>
+                  {{ cita.fecha_hora.strftime('%Y-%m-%d %H:%M') }} - {{ cita.motivo }}
+                  <a href="{{ url_for('ver_cita', cita_id=cita.id) }}" class="btn btn-sm btn-info">Ver</a>
+              </li>
+          {% endfor %}
+          </ul>
+      {% else %}
+          <p>No tiene citas programadas.</p>
+      {% endif %}
+      <a href="{{ url_for('nueva_cita_paciente', paciente_id=paciente.id) }}" class="btn btn-success">Agendar Nueva Cita</a>
+      <a href="{{ url_for('listar_citas_paciente', paciente_id=paciente.id) }}" class="btn btn-primary">Ver Todas las Citas del Paciente</a>
+  </div>
 </div>
 {% endblock %}

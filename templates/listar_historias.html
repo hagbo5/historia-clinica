@@ -23,6 +23,10 @@
         <td>{{ historia.diagnostico }}</td>
         <td>
           <a href="{{ url_for('ver_historia', id=historia.id) }}" class="btn btn-sm btn-info">Ver</a>
+          <a href="{{ url_for('editar_historia', paciente_id=paciente.id, historia_id=historia.id) }}" class="btn btn-sm btn-warning">Editar</a>
+          <form action="{{ url_for('eliminar_historia', paciente_id=paciente.id, historia_id=historia.id) }}" method="POST" style="display: inline;">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Estás seguro de que deseas eliminar esta historia?');">Eliminar</button>
+          </form>
         </td>
       </tr>
       {% endfor %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'navbar.html' %}
+<div class="container mt-5 pt-5">
+    <h2>Catálogo de Tratamientos</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category else 'info' }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <a href="{{ url_for('nuevo_tratamiento') }}" class="btn btn-primary mb-3">Agregar Nuevo Tratamiento</a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Costo Estimado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trat in tratamientos %}
+            <tr>
+                <td>{{ trat.codigo }}</td>
+                <td>{{ trat.descripcion }}</td>
+                <td>{{ "%.2f"|format(trat.costo) if trat.costo is not none else 'N/A' }}</td>
+                <td>
+                    <a href="{{ url_for('editar_tratamiento', id=trat.id) }}" class="btn btn-warning btn-sm">Editar</a>
+                    <form action="{{ url_for('eliminar_tratamiento', id=trat.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este tratamiento? Solo se eliminará si no está en uso.');">
+                        <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4">No hay tratamientos en el catálogo.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
