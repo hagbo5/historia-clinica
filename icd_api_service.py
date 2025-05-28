@@ -27,7 +27,7 @@ def get_icd_api_token():
 
     if not client_id or not client_secret:
         print("Error: ICD_API_CLIENT_ID or ICD_API_CLIENT_SECRET not found in environment variables.")
-        return None
+        return (None, "MISSING_CREDENTIALS")
 
     payload = {
         "client_id": client_id,
@@ -46,25 +46,25 @@ def get_icd_api_token():
         _token_expiry_time = time.time() + expires_in - TOKEN_EXPIRY_BUFFER
         
         # print(f"New token obtained, expires in approx {expires_in // 60} minutes.") # For debugging
-        return _cached_token
+        return (_cached_token, "SUCCESS")
         
     except requests.exceptions.RequestException as e:
         print(f"Error requesting ICD API token: {e}")
         _cached_token = None # Clear cache on error
         _token_expiry_time = 0
-        return None
+        return (None, "TOKEN_REQUEST_FAILED")
     except json.JSONDecodeError:
         print("Error: Could not decode JSON response from token endpoint.")
         _cached_token = None
         _token_expiry_time = 0
-        return None
+        return (None, "TOKEN_REQUEST_FAILED") # Group JSONDecodeError with token request failures
 
 
 def search_icd_codes(search_term):
-    token = get_icd_api_token()
-    if not token:
-        print("Error: Could not retrieve API token for ICD search.")
-        return [] # Return empty list on token error
+    token, token_status = get_icd_api_token()
+    if token_status != "SUCCESS":
+        print(f"Error: Could not retrieve API token for ICD search. Status: {token_status}")
+        return (None, token_status) # Propagate the error status
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -101,14 +101,14 @@ def search_icd_codes(search_term):
                         "raw_title": item.get("title"), # For context if needed
                         "raw_id": item.get("id")
                     })
-        return formatted_results
+        return (formatted_results, "SUCCESS")
 
     except requests.exceptions.RequestException as e:
         print(f"Error searching ICD codes for '{search_term}': {e}")
-        return [] # Return empty list on search error
+        return (None, "SEARCH_API_ERROR")
     except json.JSONDecodeError:
         print(f"Error: Could not decode JSON response from ICD search for '{search_term}'.")
-        return []
+        return (None, "SEARCH_API_ERROR") # Group JSONDecodeError with search API errors
 
 if __name__ == '__main__':
     # Example usage (for testing the service directly)
