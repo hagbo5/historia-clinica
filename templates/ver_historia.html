@@ -22,7 +22,37 @@
   <div class="mb-3">
     <strong>Observaciones:</strong> {{ historia.observaciones }}
   </div>
-  <a href="{{ url_for('listar_historias', paciente_id=historia.paciente.id) }}" class="btn btn-secondary">
+
+  <div class="mt-3">
+      <h5>Diagnósticos Asociados:</h5>
+      {% if historia.diagnosticos and historia.diagnosticos.count() > 0 %}
+          <ul class="list-group">
+              {% for diag in historia.diagnosticos %}
+                  <li class="list-group-item">{{ diag.codigo }} - {{ diag.descripcion }}</li>
+              {% endfor %}
+          </ul>
+      {% else %}
+          <p>No hay diagnósticos asociados a esta historia clínica.</p>
+      {% endif %}
+  </div>
+
+  <div class="mt-3">
+      <h5>Tratamientos Aplicados:</h5>
+      {% if historia.tratamientos and historia.tratamientos.count() > 0 %}
+          <ul class="list-group">
+              {% for trat in historia.tratamientos %}
+                  <li class="list-group-item">
+                      {{ trat.codigo }} - {{ trat.descripcion }} 
+                      {% if trat.costo is not none %}(Costo est.: {{ "%.2f"|format(trat.costo) }}){% endif %}
+                  </li>
+              {% endfor %}
+          </ul>
+      {% else %}
+          <p>No hay tratamientos asociados a esta historia clínica.</p>
+      {% endif %}
+  </div>
+
+  <a href="{{ url_for('listar_historias', paciente_id=historia.paciente.id) }}" class="btn btn-secondary mt-3">
     Volver
   </a>
 </div>

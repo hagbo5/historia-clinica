@@ -21,6 +21,30 @@
         <label for="observaciones" class="form-label">Observaciones</label>
         <textarea class="form-control" id="observaciones" name="observaciones" rows="4">{{ historia.observaciones }}</textarea>
       </div>
+      <div class="mb-3">
+          <label for="diagnosticos_seleccionados" class="form-label">Diagnósticos Asociados (seleccione uno o más)</label>
+          <select multiple class="form-control" id="diagnosticos_seleccionados" name="diagnosticos_seleccionados" size="5">
+              {% for diag_catalog_item in diagnosticos_catalogo %}
+                  <option value="{{ diag_catalog_item.id }}"
+                          {% if diag_catalog_item in historia.diagnosticos %}selected{% endif %}>
+                      {{ diag_catalog_item.codigo }} - {{ diag_catalog_item.descripcion }}
+                  </option>
+              {% endfor %}
+          </select>
+          <small class="form-text text-muted">Mantenga presionada la tecla Ctrl (o Cmd en Mac) para seleccionar múltiples diagnósticos.</small>
+      </div>
+      <div class="mb-3">
+          <label for="tratamientos_seleccionados" class="form-label">Tratamientos Aplicados (seleccione uno o más)</label>
+          <select multiple class="form-control" id="tratamientos_seleccionados" name="tratamientos_seleccionados" size="5">
+              {% for trat_catalog_item in tratamientos_catalogo %}
+                  <option value="{{ trat_catalog_item.id }}"
+                          {% if trat_catalog_item in historia.tratamientos %}selected{% endif %}>
+                      {{ trat_catalog_item.codigo }} - {{ trat_catalog_item.descripcion }}
+                  </option>
+              {% endfor %}
+          </select>
+          <small class="form-text text-muted">Mantenga presionada la tecla Ctrl (o Cmd en Mac) para seleccionar múltiples.</small>
+      </div>
       <div class="d-grid">
         <button type="submit" class="btn btn-primary">Actualizar Historia</button>
       </div>
