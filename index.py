@@ -1,10 +1,11 @@
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from models import db, User, Paciente, HistoriaClinica, Cita, Diagnostico, Tratamiento, Factura, ItemFactura # Asegúrate de importar User desde models.py
 from models import Paciente
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
+from icd_api_service import search_icd_codes
 
 
 app = Flask(__name__)
@@ -388,6 +389,23 @@ def eliminar_cita(cita_id):
     else:
         return redirect(url_for('citas'))
 
+# --- ICD Search Route ---
+@app.route('/diagnosticos/buscar_icd') # Defaults to GET requests
+@login_required
+def buscar_icd_api():
+    search_term = request.args.get('q', '').strip() # Get search term, strip whitespace
+
+    if not search_term or len(search_term) < 2: # Basic validation for search term length
+        return jsonify([]) # Return empty list if term is too short or empty
+    
+    # Assuming search_icd_codes handles its own errors and returns [] on failure
+    results = search_icd_codes(search_term) 
+    
+    # The results from search_icd_codes are already in a list of dicts format
+    # e.g., [{'id': 'http://id.who.int/icd/entity/123', 'label': 'Some Disease'}]
+    return jsonify(results)
+
+# --- Diagnosticos Catalog Routes ---
 @app.route('/diagnosticos')
 @login_required
 def diagnosticos_list():
@@ -464,6 +482,7 @@ def eliminar_diagnostico(id):
         flash(f'Error al eliminar el diagnóstico: {e}', 'danger')
     return redirect(url_for('diagnosticos_list'))
 
+# --- Tratamientos Catalog Routes ---
 @app.route('/tratamientos')
 @login_required
 def tratamientos_list():
@@ -636,12 +655,6 @@ def agregar_item_factura(factura_id):
         tratamiento_id = None
         if tratamiento_id_str and tratamiento_id_str != "":
             tratamiento_id = int(tratamiento_id_str)
-            # If a tratamiento is selected, its cost could potentially override precio_unitario
-            # For now, using the manually entered/JS-populated price.
-            # selected_trat = Tratamiento.query.get(tratamiento_id)
-            # if selected_trat and selected_trat.costo is not None:
-            #     precio_unitario = float(selected_trat.costo)
-
 
         nuevo_item = ItemFactura(
             factura_id=factura.id,

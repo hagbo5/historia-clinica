@@ -23,16 +23,19 @@
     <strong>Observaciones:</strong> {{ historia.observaciones }}
   </div>
 
-  <div class="mt-3">
-      <h5>Diagnósticos Asociados:</h5>
+  <div class="mt-3"> 
+      <h5>Diagnósticos Asociados (CIE-11):</h5>
       {% if historia.diagnosticos and historia.diagnosticos.count() > 0 %}
           <ul class="list-group">
               {% for diag in historia.diagnosticos %}
-                  <li class="list-group-item">{{ diag.codigo }} - {{ diag.descripcion }}</li>
+                  <li class="list-group-item">
+                      <small class="text-muted">ID Entidad CIE-11:</small> {{ diag.codigo }} <br>
+                      <strong>Descripción:</strong> {{ diag.descripcion }}
+                  </li>
               {% endfor %}
           </ul>
       {% else %}
-          <p>No hay diagnósticos asociados a esta historia clínica.</p>
+          <p>No hay diagnósticos CIE-11 asociados a esta historia clínica.</p>
       {% endif %}
   </div>
 
