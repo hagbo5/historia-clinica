@@ -22,7 +22,7 @@
         <textarea class="form-control" id="observaciones" name="observaciones" rows="4">{{ historia.observaciones }}</textarea>
       </div>
       <div class="mb-3">
-          <label for="diagnosticos_seleccionados" class="form-label">Diagnósticos Asociados (seleccione uno o más)</label>
+          <label for="diagnosticos_seleccionados" class="form-label">Diagnósticos CIE-11 Asociados (seleccione uno o más del catálogo)</label>
           <select multiple class="form-control" id="diagnosticos_seleccionados" name="diagnosticos_seleccionados" size="5">
               {% for diag_catalog_item in diagnosticos_catalogo %}
                   <option value="{{ diag_catalog_item.id }}"

@@ -14,8 +14,11 @@
 
     <form method="POST" action="{{ url_for(request.endpoint, id=diagnostico.id if diagnostico else None) }}">
         <div class="mb-3">
-            <label for="codigo" class="form-label">Código</label>
-            <input type="text" class="form-control" id="codigo" name="codigo" value="{{ diagnostico.codigo if diagnostico else (codigo if codigo else '') }}" required>
+            <label for="codigo" class="form-label">Buscar Término / Código CIE-11 (ID Entidad)</label>
+            <input type="text" class="form-control" id="codigo" name="codigo" value="{{ diagnostico.codigo if diagnostico else (codigo if codigo else '') }}" required autocomplete="off">
+            <div id="icd_suggestions_list" class="list-group" style="position: relative; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                <!-- Suggestions will be injected here by JavaScript -->
+            </div>
         </div>
         <div class="mb-3">
             <label for="descripcion" class="form-label">Descripción</label>
@@ -25,4 +28,91 @@
         <a href="{{ url_for('diagnosticos_list') }}" class="btn btn-secondary">Cancelar</a>
     </form>
 </div>
+
+<script>
+    const codigoInput = document.getElementById('codigo'); 
+    const descripcionTextarea = document.getElementById('descripcion'); 
+    const suggestionsContainer = document.getElementById('icd_suggestions_list');
+    let debounceTimer;
+
+    codigoInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const searchTerm = this.value.trim();
+
+        if (searchTerm.length < 3) { // Minimum characters to trigger search
+            suggestionsContainer.innerHTML = ''; // Clear suggestions
+            // If we clear the search term, also clear the description
+            if (searchTerm.length === 0) {
+                 // Check if the current description came from a previous selection
+                if (descripcionTextarea.dataset.icdSelected === 'true') {
+                    descripcionTextarea.value = '';
+                    descripcionTextarea.dataset.icdSelected = 'false';
+                }
+            }
+            return;
+        }
+
+        // If user continues typing on a selected URI, treat as new search
+        if (codigoInput.value.startsWith('http://id.who.int/icd/entity/')) {
+             if (descripcionTextarea.dataset.icdSelected === 'true' && codigoInput.value !== suggestionsContainer.dataset.lastSelectedUri) {
+                // Clear description if user is typing over a previously selected URI
+                descripcionTextarea.value = '';
+                descripcionTextarea.dataset.icdSelected = 'false';
+            }
+        }
+
+
+        debounceTimer = setTimeout(() => {
+            fetch(`/diagnosticos/buscar_icd?q=\${encodeURIComponent(searchTerm)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    suggestionsContainer.innerHTML = ''; // Clear previous suggestions
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            const suggestionItem = document.createElement('a');
+                            suggestionItem.classList.add('list-group-item', 'list-group-item-action');
+                            suggestionItem.href = '#'; 
+                            
+                            // Extract the last part of the URI for a shorter code display
+                            let shortCode = item.id.substring(item.id.lastIndexOf('/') + 1);
+                            if (shortCode.length > 20) { // If it's still a long string (e.g. complex ID)
+                                shortCode = shortCode.substring(0,7) + "..." + shortCode.substring(shortCode.length - 7);
+                            }
+
+                            suggestionItem.textContent = item.label + ' (' + shortCode + ')';
+                            suggestionItem.dataset.icdId = item.id; // Store full URI
+                            suggestionItem.dataset.icdLabel = item.label;
+
+                            suggestionItem.addEventListener('click', function(e) {
+                                e.preventDefault(); 
+                                codigoInput.value = this.dataset.icdId; // Full URI
+                                descripcionTextarea.value = this.dataset.icdLabel;
+                                suggestionsContainer.innerHTML = ''; 
+                                descripcionTextarea.dataset.icdSelected = 'true'; // Mark that description is from selection
+                                suggestionsContainer.dataset.lastSelectedUri = this.dataset.icdId; // Store last selected URI
+                            });
+                            suggestionsContainer.appendChild(suggestionItem);
+                        });
+                    } else {
+                        suggestionsContainer.innerHTML = '<div class="list-group-item disabled">No se encontraron sugerencias.</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching ICD suggestions:', error);
+                    suggestionsContainer.innerHTML = '<div class="list-group-item text-danger">Error al cargar sugerencias.</div>';
+                });
+        }, 300); 
+    });
+
+    document.addEventListener('click', function(event) {
+        if (!suggestionsContainer.contains(event.target) && event.target !== codigoInput) {
+            suggestionsContainer.innerHTML = '';
+        }
+    });
+</script>
 {% endblock %}
