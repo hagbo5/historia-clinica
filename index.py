@@ -4,7 +4,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from models import db, User, Paciente, HistoriaClinica, Cita, Diagnostico, Tratamiento, Factura, ItemFactura # Asegúrate de importar User desde models.py
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from icd_api_service import search_icd_codes
+from icd_api_service import search_icd_codes, get_icd_chapters
 
 
 app = Flask(__name__)
@@ -759,6 +759,50 @@ def ayuda_placeholder():
     return render_template('placeholder.html', title='Ayuda')
 
 # Aquí puedes añadir más rutas y lógica para tu aplicación
+
+@app.route('/diagnosticos/chapters')
+@login_required # Ensure user is logged in
+def list_icd_chapters():
+    # The release_uri for ICD-11 MMS 2023-01. This could be made configurable later if needed.
+    release_uri = "https://id.who.int/icd/release/11/2023-01/mms"
+
+    chapters_data, status = get_icd_chapters(release_uri)
+
+    chapters_for_template = []
+    if status == "SUCCESS":
+        # The 'title' from get_icd_chapters is an object like {'@language': 'es', '@value': 'Chapter Title'}
+        # We should extract the value for display.
+        if chapters_data: # chapters_data could be None if status indicated an error not caught as an exception
+            for chapter in chapters_data:
+                chapter_title = "Unknown Title"
+                # Ensure chapter and chapter.get('title') are not None before processing
+                if chapter and chapter.get('title'):
+                    if isinstance(chapter.get('title'), dict):
+                        chapter_title = chapter['title'].get('@value', chapter_title)
+                    elif isinstance(chapter.get('title'), str): # if title is just a string (fallback)
+                        chapter_title = chapter['title']
+
+                chapter_id = "Unknown ID"
+                if chapter:
+                    chapter_id = chapter.get('@id', chapter.get('id', chapter_id)) # Handle if ID key is @id or id
+
+                chapter_class_kind = "N/A"
+                if chapter:
+                    chapter_class_kind = chapter.get('classKind', 'N/A')
+
+                chapters_for_template.append({
+                    'id': chapter_id,
+                    'title': chapter_title,
+                    'classKind': chapter_class_kind
+                })
+    elif status == "MISSING_CREDENTIALS":
+        flash("Error: La configuración de la API ICD (variables de entorno) no se encuentra. Contacte al administrador.", "danger")
+    elif status == "TOKEN_REQUEST_FAILED":
+        flash("Error al contactar el servicio de autenticación de la API ICD. Intente más tarde.", "danger")
+    else: # Other errors from the service like API_ERROR, or None for chapters_data
+        flash(f"Error al obtener los capítulos de CIE: {status}", "danger")
+
+    return render_template('list_chapters.html', chapters=chapters_for_template, release_uri=release_uri)
 
 if __name__ == '__main__':
     with app.app_context():
