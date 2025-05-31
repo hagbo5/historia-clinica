@@ -13,15 +13,16 @@ _token_expiry_time = 0 # Unix timestamp when the token expires
 TOKEN_VALIDITY_SECONDS = 3600 # Typically 1 hour, as per OAuth standards
 TOKEN_EXPIRY_BUFFER = 60 # Request new token 60 seconds before it actually expires
 
-def get_icd_api_token():
+def get_icd_api_token(): # Removed override parameters
     global _cached_token, _token_expiry_time
 
-    # Check cache first
+    # Always check cache first.
     if _cached_token and time.time() < _token_expiry_time:
-        # print("Using cached token") # For debugging
-        return _cached_token
+        # print("Using cached token")
+        return (_cached_token, "SUCCESS_FROM_CACHE") # Ensure tuple is returned
 
-    # print("Requesting new token...") # For debugging
+    # print("Requesting new token...")
+    # Directly use environment variables
     client_id = os.environ.get("ICD_API_CLIENT_ID")
     client_secret = os.environ.get("ICD_API_CLIENT_SECRET")
 
@@ -30,8 +31,8 @@ def get_icd_api_token():
         return (None, "MISSING_CREDENTIALS")
 
     payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
+        "client_id": client_id, # Uses os.environ.get() result
+        "client_secret": client_secret, # Uses os.environ.get() result
         "grant_type": "client_credentials",
         "scope": "icdapi_access"
     }
@@ -60,16 +61,18 @@ def get_icd_api_token():
         return (None, "TOKEN_REQUEST_FAILED") # Group JSONDecodeError with token request failures
 
 
-def search_icd_codes(search_term):
-    token, token_status = get_icd_api_token()
-    if token_status != "SUCCESS":
+def search_icd_codes(search_term): # Removed override parameters
+    token, token_status = get_icd_api_token() # Call without overrides
+    # Also handle "SUCCESS_FROM_CACHE" as a success
+    if token_status not in ["SUCCESS", "SUCCESS_FROM_CACHE"]:
         print(f"Error: Could not retrieve API token for ICD search. Status: {token_status}")
         return (None, token_status) # Propagate the error status
 
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
-        "Accept-Language": "es" # As per user's example
+        "Accept-Language": "es", # As per user's example
+        "API-Version": "v2" # Added API-Version header
     }
     params = {
         "q": search_term,
@@ -90,8 +93,14 @@ def search_icd_codes(search_term):
         formatted_results = []
         if results and "destinationEntities" in results and isinstance(results["destinationEntities"], list):
             for item in results["destinationEntities"]:
-                title_info = item.get("title", {})
-                label = title_info.get("@value", "No title available")
+                title_info = item.get("title", "No title available") # Default to string if title is missing
+                if isinstance(title_info, dict):
+                    label = title_info.get("@value", "No title available")
+                elif isinstance(title_info, str):
+                    label = title_info # Use the string directly
+                else:
+                    label = "No title available" # Fallback for unexpected types
+
                 entity_id = item.get("id", None) # This is the URI
                 
                 if entity_id: # Only include if there's an ID
@@ -109,6 +118,73 @@ def search_icd_codes(search_term):
     except json.JSONDecodeError:
         print(f"Error: Could not decode JSON response from ICD search for '{search_term}'.")
         return (None, "SEARCH_API_ERROR") # Group JSONDecodeError with search API errors
+
+
+def get_entity(entity_uri): # Removed override parameters
+    token, token_status = get_icd_api_token() # Call without overrides
+
+    if token_status not in ["SUCCESS", "SUCCESS_FROM_CACHE"]:
+        print(f"Error: Could not retrieve API token for get_entity({entity_uri}). Status: {token_status}")
+        return (None, token_status)
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "Accept-Language": "es", # Or make this a parameter if needed
+        "API-Version": "v2"
+    }
+
+    try:
+        response = requests.get(entity_uri, headers=headers, timeout=15)
+        response.raise_for_status()
+        return (response.json(), "SUCCESS")
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching entity {entity_uri}: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"Response status: {e.response.status_code}, content: {e.response.text[:200]}")
+        return (None, "ENTITY_REQUEST_FAILED")
+    except json.JSONDecodeError as e:
+        print(f"Error decoding JSON for entity {entity_uri}: {e}")
+        return (None, "JSON_DECODE_ERROR")
+
+
+def get_icd_chapters(release_uri): # Removed override parameters
+    chapters_list = []
+
+    # Get the main release entity
+    release_data, status = get_entity(release_uri) # Call without overrides
+
+    if status != "SUCCESS":
+        print(f"Error fetching release URI {release_uri}. Status: {status}")
+        return (None, status)
+
+    if not release_data or 'child' not in release_data:
+        print(f"No 'child' property found in release data for {release_uri}.")
+        return (None, "NO_CHAPTERS_FOUND_IN_RELEASE_DATA")
+
+    chapter_uris = release_data.get('child', [])
+    print(f"Found {len(chapter_uris)} potential chapter URIs in {release_uri}.")
+
+    for i, chapter_uri in enumerate(chapter_uris): # Process all chapters
+        print(f"Fetching details for chapter URI ({i+1}/{len(chapter_uris)}): {chapter_uri}")
+        chapter_data, chapter_status = get_entity(chapter_uri) # Call without overrides
+        if chapter_status == "SUCCESS" and chapter_data:
+            chapters_list.append({
+                "id": chapter_data.get('@id', chapter_uri),
+                "title": chapter_data.get('title', {}), # Keep the title object
+                "classKind": chapter_data.get('classKind', 'N/A')
+            })
+        else:
+            print(f"Warning: Could not fetch details for chapter {chapter_uri}. Status: {chapter_status}")
+            # Optionally, add placeholder or error info to the list
+            chapters_list.append({
+                "id": chapter_uri,
+                "title": {"@value": "Error fetching title"},
+                "error_status": chapter_status
+            })
+
+    return (chapters_list, "SUCCESS")
+
 
 if __name__ == '__main__':
     # Example usage (for testing the service directly)

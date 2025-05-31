@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+{% include 'navbar.html' %}
+
+<div class="container mt-5">
+  <h2>Capítulos de CIE-11 (Release: {{ release_uri }})</h2>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if chapters %}
+    <ul class="list-group">
+      {% for chapter in chapters %}
+        <li class="list-group-item">
+          <h5 class="mb-1">{{ chapter.title }}</h5>
+          <p class="mb-1">Tipo: {{ chapter.classKind }}</p>
+          <small class="text-muted">ID: {{ chapter.id }}</small>
+          <!-- In a future step, this could be a link to view children of this chapter -->
+          <!-- <a href="{{ url_for('view_chapter_children', chapter_uri=chapter.id) }}" class="btn btn-sm btn-primary float-end">Ver Contenido</a> -->
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif not get_flashed_messages() %} <!-- Only show "no chapters" if no error message was flashed -->
+    <p>No se encontraron capítulos o no se pudieron cargar.</p>
+  {% endif %}
+
+  <div class="mt-3">
+      <a href="{{ url_for('diagnosticos_list') }}" class="btn btn-secondary">Volver a Diagnósticos</a>
+  </div>
+</div>
+{% endblock %}
