@@ -5,7 +5,7 @@ from models import db, User, Paciente, HistoriaClinica, Cita, Diagnostico, Trata
 from models import Paciente
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from icd_api_service import search_icd_codes
+from icd_api_service import search_icd_codes, get_icd_chapters
 
 
 app = Flask(__name__)
@@ -714,6 +714,48 @@ def marcar_factura_pagada(factura_id):
     return redirect(url_for('ver_factura', factura_id=factura.id))
 
 # Aquí puedes añadir más rutas y lógica para tu aplicación
+
+@app.route('/diagnosticos/chapters')
+@login_required # Ensure user is logged in
+def list_icd_chapters():
+    # Route to list ICD chapters
+    # The release_uri for ICD-11 MMS 2023-01. This could be made configurable later if needed.
+    release_uri = "https://id.who.int/icd/release/11/2023-01/mms"
+
+    chapters_data, status = get_icd_chapters(release_uri)
+
+    chapters_for_template = []
+    if status == "SUCCESS":
+        if chapters_data:
+            for chapter in chapters_data:
+                chapter_title = "Unknown Title"
+                if chapter and chapter.get('title'):
+                    if isinstance(chapter.get('title'), dict):
+                        chapter_title = chapter['title'].get('@value', chapter_title)
+                    elif isinstance(chapter.get('title'), str):
+                        chapter_title = chapter['title']
+
+                chapter_id = "Unknown ID"
+                if chapter:
+                    chapter_id = chapter.get('@id', chapter.get('id', chapter_id))
+
+                chapter_class_kind = "N/A"
+                if chapter:
+                    chapter_class_kind = chapter.get('classKind', 'N/A')
+
+                chapters_for_template.append({
+                    'id': chapter_id,
+                    'title': chapter_title,
+                    'classKind': chapter_class_kind
+                })
+    elif status == "MISSING_CREDENTIALS":
+        flash("Error: La configuración de la API ICD (variables de entorno) no se encuentra. Contacte al administrador.", "danger")
+    elif status == "TOKEN_REQUEST_FAILED":
+        flash("Error al contactar el servicio de autenticación de la API ICD. Intente más tarde.", "danger")
+    else:
+        flash(f"Error al obtener los capítulos de CIE: {status}", "danger")
+
+    return render_template('list_chapters.html', chapters=chapters_for_template, release_uri=release_uri)
 
 if __name__ == '__main__':
     with app.app_context():
