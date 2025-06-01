@@ -2,9 +2,10 @@ from flask import Flask, render_template, redirect, url_for, flash, request, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from models import db, User, Paciente, HistoriaClinica, Cita, Diagnostico, Tratamiento, Factura, ItemFactura # Asegúrate de importar User desde models.py
+from models import Paciente
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from icd_api_service import search_icd_codes, get_icd_chapters
+from icd_api_service import search_icd_codes
 
 
 app = Flask(__name__)
@@ -188,7 +189,6 @@ def editar_paciente(id):
             flash('Paciente actualizado correctamente.')
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in editar_paciente: {e}") # Added print
             flash('Ocurrió un error al actualizar el paciente.')
         return redirect(url_for('pacientes'))
     return render_template('editar_paciente.html', paciente=paciente)
@@ -203,7 +203,6 @@ def eliminar_paciente(id):
         flash('Paciente eliminado correctamente.')
     except Exception as e:
         db.session.rollback()
-        print(f"Error details in eliminar_paciente: {e}") # Added print
         flash('Error al eliminar el paciente.')
     return redirect(url_for('pacientes'))
 
@@ -251,7 +250,6 @@ def nueva_historia(paciente_id):
             return redirect(url_for('listar_historias', paciente_id=paciente.id))
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in nueva_historia: {e}") # Added print
             flash(f'Error al crear la historia: {e}', 'danger')
             
     return render_template('nueva_historia.html', paciente=paciente, diagnosticos_catalogo=diagnosticos_catalogo, tratamientos_catalogo=tratamientos_catalogo)
@@ -293,7 +291,6 @@ def editar_historia(paciente_id, historia_id):
             return redirect(url_for('listar_historias', paciente_id=historia.paciente_id))
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in editar_historia: {e}") # Added print
             flash(f'Ocurrió un error al actualizar la historia clínica: {e}', 'danger')
             
     return render_template('editar_historia.html', historia=historia, paciente=paciente, diagnosticos_catalogo=diagnosticos_catalogo, tratamientos_catalogo=tratamientos_catalogo)
@@ -309,7 +306,6 @@ def eliminar_historia(paciente_id, historia_id):
         flash('Historia clínica eliminada correctamente.', 'success')
     except Exception as e:
         db.session.rollback()
-        print(f"Error details in eliminar_historia: {e}") # Added print
         flash(f'Ocurrió un error al eliminar la historia clínica: {e}', 'danger')
     return redirect(url_for('listar_historias', paciente_id=paciente_id))
 
@@ -400,29 +396,14 @@ def buscar_icd_api():
     search_term = request.args.get('q', '').strip() # Get search term, strip whitespace
 
     if not search_term or len(search_term) < 2: # Basic validation for search term length
-        flash('El término de búsqueda debe tener al menos 2 caracteres.', 'warning')
         return jsonify([]) # Return empty list if term is too short or empty
     
-    data, status_message = search_icd_codes(search_term)
+    # Assuming search_icd_codes handles its own errors and returns [] on failure
+    results = search_icd_codes(search_term)
     
-    if status_message == "MISSING_CREDENTIALS":
-        flash("Error: La configuración de la API ICD (variables de entorno ICD_API_CLIENT_ID o ICD_API_CLIENT_SECRET) no se encuentra. Contacte al administrador.", 'danger')
-        return jsonify({"error": "configuración incompleta"})
-    elif status_message == "TOKEN_REQUEST_FAILED":
-        flash("Error al contactar el servicio de autenticación de la API ICD. Intente más tarde.", 'danger')
-        return jsonify({"error": "error de autenticación API"})
-    elif status_message == "SEARCH_API_ERROR":
-        flash("Error al buscar en la API ICD. Intente más tarde.", 'danger')
-        return jsonify({"error": "error de búsqueda API"})
-    elif status_message == "SUCCESS":
-        if not data:
-            flash(f"No se encontraron resultados para '{search_term}' en la API ICD.", 'info')
-            return jsonify([])
-        return jsonify(data)
-    else:
-        # Should not happen with current setup, but good for robustness
-        flash("Ocurrió un error inesperado durante la búsqueda en la API ICD.", 'danger')
-        return jsonify({"error": "error desconocido API"})
+    # The results from search_icd_codes are already in a list of dicts format
+    # e.g., [{'id': 'http://id.who.int/icd/entity/123', 'label': 'Some Disease'}]
+    return jsonify(results)
 
 # --- Diagnosticos Catalog Routes ---
 @app.route('/diagnosticos')
@@ -450,11 +431,9 @@ def nuevo_diagnostico():
             return redirect(url_for('diagnosticos_list'))
         except IntegrityError: 
             db.session.rollback()
-            # Consider print(f"IntegrityError in nuevo_diagnostico: {e}") if needed, though flash is specific
             flash('Error: El código de diagnóstico ya existe o hubo un problema.', 'danger')
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in nuevo_diagnostico: {e}") # Added print
             flash(f'Ocurrió un error inesperado: {e}', 'danger')
         
     return render_template('nuevo_diagnostico.html', diagnostico=None)
@@ -479,11 +458,9 @@ def editar_diagnostico(id):
             return redirect(url_for('diagnosticos_list'))
         except IntegrityError: 
             db.session.rollback()
-            # Consider print(f"IntegrityError in editar_diagnostico: {e}") if needed
             flash('Error: El código de diagnóstico ya existe o hubo un problema con la actualización.', 'danger')
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in editar_diagnostico: {e}") # Added print
             flash(f'Ocurrió un error inesperado: {e}', 'danger')
             
     return render_template('nuevo_diagnostico.html', diagnostico=diag)
@@ -502,7 +479,6 @@ def eliminar_diagnostico(id):
         flash('Diagnóstico eliminado correctamente.', 'success')
     except Exception as e:
         db.session.rollback()
-        print(f"Error details in eliminar_diagnostico: {e}") # Added print
         flash(f'Error al eliminar el diagnóstico: {e}', 'danger')
     return redirect(url_for('diagnosticos_list'))
 
@@ -541,11 +517,9 @@ def nuevo_tratamiento():
             return redirect(url_for('tratamientos_list'))
         except IntegrityError:
             db.session.rollback()
-            # Consider print(f"IntegrityError in nuevo_tratamiento: {e}") if needed
             flash('Error: El código de tratamiento ya existe.', 'danger')
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in nuevo_tratamiento: {e}") # Added print
             flash(f'Ocurrió un error inesperado: {e}', 'danger')
     return render_template('nuevo_tratamiento.html', tratamiento=None)
 
@@ -579,11 +553,9 @@ def editar_tratamiento(id):
             return redirect(url_for('tratamientos_list'))
         except IntegrityError:
             db.session.rollback()
-            # Consider print(f"IntegrityError in editar_tratamiento: {e}") if needed
             flash('Error: El código de tratamiento ya existe o hubo un problema.', 'danger')
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in editar_tratamiento: {e}") # Added print
             flash(f'Ocurrió un error inesperado: {e}', 'danger')
     return render_template('nuevo_tratamiento.html', tratamiento=trat)
 
@@ -601,7 +573,6 @@ def eliminar_tratamiento(id):
         flash('Tratamiento eliminado correctamente.', 'success')
     except Exception as e:
         db.session.rollback()
-        print(f"Error details in eliminar_tratamiento: {e}") # Added print
         flash(f'Error al eliminar el tratamiento: {e}', 'danger')
     return redirect(url_for('tratamientos_list'))
 
@@ -645,11 +616,9 @@ def nueva_factura_paciente(paciente_id):
             return redirect(url_for('ver_factura', factura_id=nueva_factura.id)) 
         except IntegrityError as e:
             db.session.rollback()
-            print(f"IntegrityError in nueva_factura_paciente: {e}") # Added print
             flash(f'Error al crear la factura: Ya existe una factura con ese número o hubo otro problema de integridad. {e}', 'danger')
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in nueva_factura_paciente: {e}") # Added print
             flash(f'Ocurrió un error inesperado al crear la factura: {e}', 'danger')
         
     return render_template('nueva_factura_form.html', paciente=paciente)
@@ -703,11 +672,9 @@ def agregar_item_factura(factura_id):
         flash('Ítem agregado a la factura.', 'success')
 
     except ValueError:
-        # This is a user input error, flash is primary, print might be too verbose
         flash('Cantidad y Precio Unitario deben ser números válidos.', 'danger')
     except Exception as e:
         db.session.rollback()
-        print(f"Error details in agregar_item_factura: {e}") # Added print
         flash(f'Error al agregar ítem: {e}', 'danger')
         
     return redirect(url_for('ver_factura', factura_id=factura.id))
@@ -725,7 +692,6 @@ def eliminar_item_factura(item_id):
         flash('Ítem eliminado de la factura.', 'success')
     except Exception as e:
         db.session.rollback()
-        print(f"Error details in eliminar_item_factura: {e}") # Added print
         flash(f'Error al eliminar ítem: {e}', 'danger')
         
     return redirect(url_for('ver_factura', factura_id=factura_id))
@@ -742,67 +708,12 @@ def marcar_factura_pagada(factura_id):
             flash('Factura marcada como Pagada.', 'success')
         except Exception as e:
             db.session.rollback()
-            print(f"Error details in marcar_factura_pagada: {e}") # Added print
             flash(f'Error al actualizar estado de la factura: {e}', 'danger')
     else:
         flash('La factura no está en un estado que permita marcarla como pagada directamente.', 'warning')
     return redirect(url_for('ver_factura', factura_id=factura.id))
 
-@app.route('/clinica_placeholder')
-@login_required
-def clinica_placeholder():
-    return render_template('placeholder.html', title='Clínica')
-
-@app.route('/ayuda_placeholder')
-@login_required
-def ayuda_placeholder():
-    return render_template('placeholder.html', title='Ayuda')
-
 # Aquí puedes añadir más rutas y lógica para tu aplicación
-
-@app.route('/diagnosticos/chapters')
-@login_required # Ensure user is logged in
-def list_icd_chapters():
-    # The release_uri for ICD-11 MMS 2023-01. This could be made configurable later if needed.
-    release_uri = "https://id.who.int/icd/release/11/2023-01/mms"
-
-    chapters_data, status = get_icd_chapters(release_uri)
-
-    chapters_for_template = []
-    if status == "SUCCESS":
-        # The 'title' from get_icd_chapters is an object like {'@language': 'es', '@value': 'Chapter Title'}
-        # We should extract the value for display.
-        if chapters_data: # chapters_data could be None if status indicated an error not caught as an exception
-            for chapter in chapters_data:
-                chapter_title = "Unknown Title"
-                # Ensure chapter and chapter.get('title') are not None before processing
-                if chapter and chapter.get('title'):
-                    if isinstance(chapter.get('title'), dict):
-                        chapter_title = chapter['title'].get('@value', chapter_title)
-                    elif isinstance(chapter.get('title'), str): # if title is just a string (fallback)
-                        chapter_title = chapter['title']
-
-                chapter_id = "Unknown ID"
-                if chapter:
-                    chapter_id = chapter.get('@id', chapter.get('id', chapter_id)) # Handle if ID key is @id or id
-
-                chapter_class_kind = "N/A"
-                if chapter:
-                    chapter_class_kind = chapter.get('classKind', 'N/A')
-
-                chapters_for_template.append({
-                    'id': chapter_id,
-                    'title': chapter_title,
-                    'classKind': chapter_class_kind
-                })
-    elif status == "MISSING_CREDENTIALS":
-        flash("Error: La configuración de la API ICD (variables de entorno) no se encuentra. Contacte al administrador.", "danger")
-    elif status == "TOKEN_REQUEST_FAILED":
-        flash("Error al contactar el servicio de autenticación de la API ICD. Intente más tarde.", "danger")
-    else: # Other errors from the service like API_ERROR, or None for chapters_data
-        flash(f"Error al obtener los capítulos de CIE: {status}", "danger")
-
-    return render_template('list_chapters.html', chapters=chapters_for_template, release_uri=release_uri)
 
 if __name__ == '__main__':
     with app.app_context():
