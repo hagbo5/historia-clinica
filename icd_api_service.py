@@ -2,6 +2,10 @@ import requests
 import os
 import time
 import json # Though requests.json() is often enough
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # --- Configuration ---
 TOKEN_URL = "https://icdaccessmanagement.who.int/connect/token"
