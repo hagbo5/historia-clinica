@@ -748,12 +748,12 @@ def list_icd_chapters():
                     'title': chapter_title,
                     'classKind': chapter_class_kind
                 })
-    elif status == "MISSING_CREDENTIALS":
-        flash("Error: La configuración de la API ICD (variables de entorno) no se encuentra. Contacte al administrador.", "danger")
-    elif status == "TOKEN_REQUEST_FAILED":
-        flash("Error al contactar el servicio de autenticación de la API ICD. Intente más tarde.", "danger")
-    else:
-        flash(f"Error al obtener los capítulos de CIE: {status}", "danger")
+    # Removed specific credential/token error messages as we are using local data.
+    # The local_icd_service and underlying file operations will return different statuses
+    # like "LOCAL_CHAPTERS_ERROR_OR_NO_DATA", "FILE_NOT_FOUND", etc.
+    # The generic message below should cover these.
+    elif status != "SUCCESS": # Catch any non-SUCCESS status
+        flash(f"Error al obtener los capítulos de CIE: {status}. Verifique la disponibilidad y formato del archivo 'structured_icd_data.json'.", "danger")
 
     return render_template('list_chapters.html', chapters=chapters_for_template, release_uri=release_uri)
 
