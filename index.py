@@ -719,10 +719,9 @@ def marcar_factura_pagada(factura_id):
 @login_required # Ensure user is logged in
 def list_icd_chapters():
     # Route to list ICD chapters
-    # The release_uri for ICD-11 MMS 2023-01. This could be made configurable later if needed.
-    release_uri = "https://id.who.int/icd/release/11/2023-01/mms"
-
-    chapters_data, status = get_icd_chapters(release_uri)
+    # The release_uri is no longer used as data is sourced locally.
+    # chapters_data, status = get_icd_chapters(release_uri) # Old call
+    chapters_data, status = get_icd_chapters() # Call without release_uri
 
     chapters_for_template = []
     if status == "SUCCESS":
@@ -748,14 +747,14 @@ def list_icd_chapters():
                     'title': chapter_title,
                     'classKind': chapter_class_kind
                 })
-    elif status == "MISSING_CREDENTIALS":
-        flash("Error: La configuración de la API ICD (variables de entorno) no se encuentra. Contacte al administrador.", "danger")
-    elif status == "TOKEN_REQUEST_FAILED":
-        flash("Error al contactar el servicio de autenticación de la API ICD. Intente más tarde.", "danger")
-    else:
-        flash(f"Error al obtener los capítulos de CIE: {status}", "danger")
+    # Removed specific credential/token error messages as we are using local data.
+    # The local_icd_service and underlying file operations will return different statuses
+    # like "LOCAL_CHAPTERS_ERROR_OR_NO_DATA", "FILE_NOT_FOUND", etc.
+    # The generic message below should cover these.
+    elif status != "SUCCESS": # Catch any non-SUCCESS status
+        flash(f"Error al obtener los capítulos de CIE: {status}. Verifique la disponibilidad y formato del archivo 'structured_icd_data.json'.", "danger")
 
-    return render_template('list_chapters.html', chapters=chapters_for_template, release_uri=release_uri)
+    return render_template('list_chapters.html', chapters=chapters_for_template) # Removed release_uri from context
 
 if __name__ == '__main__':
     with app.app_context():
