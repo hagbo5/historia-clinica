@@ -1,230 +1,180 @@
-import requests
-import os
-import time
-import json # Though requests.json() is often enough
-from dotenv import load_dotenv
+import json
+import time # Keep for any future time-related logic, though not strictly needed for current local ops
 
-# Load environment variables from .env file
-load_dotenv()
+# Import local services
+try:
+    from local_icd_service import (
+        get_chapters as local_get_chapters,
+        get_chapter_details as local_get_chapter_details, # Not used in this refactor directly by API service functions
+        get_disease_details as local_get_disease_details,
+        search_diseases as local_search_diseases
+    )
+except ImportError:
+    print("Error: Could not import from local_icd_service. Make sure it's in the Python path.")
+    # Define dummy functions to allow script to load for inspection if local_icd_service is missing
+    def local_get_chapters(): return []
+    def local_get_disease_details(code): return None
+    def local_search_diseases(term): return []
 
-# --- Configuration ---
-TOKEN_URL = "https://icdaccessmanagement.who.int/connect/token"
-SEARCH_URL_BASE = "https://id.who.int/icd/release/11/2023-01/mms/search" # ICD-11
+# --- Configuration & Token Logic (Commented out or Removed) ---
+# TOKEN_URL = "https://icdaccessmanagement.who.int/connect/token"
+# SEARCH_URL_BASE = "https://id.who.int/icd/release/11/2023-01/mms/search"
+# _cached_token = None
+# _token_expiry_time = 0
+# TOKEN_VALIDITY_SECONDS = 3600
+# TOKEN_EXPIRY_BUFFER = 60
 
-# --- In-memory cache for the token ---
-_cached_token = None
-_token_expiry_time = 0 # Unix timestamp when the token expires
-TOKEN_VALIDITY_SECONDS = 3600 # Typically 1 hour, as per OAuth standards
-TOKEN_EXPIRY_BUFFER = 60 # Request new token 60 seconds before it actually expires
+# load_dotenv() # Removed, assuming no .env needed for local operations directly in this file
 
-def get_icd_api_token(): # Removed override parameters
-    global _cached_token, _token_expiry_time
+def get_icd_api_token():
+    """
+    This function is no longer active as we are using local data.
+    Returns a dummy value.
+    """
+    # print("get_icd_api_token: Now using local data, API token not required.")
+    return (None, "LOCAL_DATA_MODE")
 
-    # Always check cache first.
-    if _cached_token and time.time() < _token_expiry_time:
-        # print("Using cached token")
-        return (_cached_token, "SUCCESS_FROM_CACHE") # Ensure tuple is returned
 
-    # print("Requesting new token...")
-    # Directly use environment variables
-    client_id = os.environ.get("ICD_API_CLIENT_ID")
-    client_secret = os.environ.get("ICD_API_CLIENT_SECRET")
+def search_icd_codes(search_term):
+    """
+    Searches ICD codes using the local_icd_service.
+    Transforms results to the format: list of {'id': disease_code, 'label': disease_name}.
+    """
+    # print(f"icd_api_service.search_icd_codes searching for: {search_term}")
 
-    if not client_id or not client_secret:
-        print("Error: ICD_API_CLIENT_ID or ICD_API_CLIENT_SECRET not found in environment variables.")
-        return (None, "MISSING_CREDENTIALS")
+    # Call local_search_diseases from local_icd_service
+    # This returns: [{'code': ..., 'name': ..., 'description': ..., 'inclusions': ...}, ...]
+    local_results = local_search_diseases(search_term)
 
-    payload = {
-        "client_id": client_id, # Uses os.environ.get() result
-        "client_secret": client_secret, # Uses os.environ.get() result
-        "grant_type": "client_credentials",
-        "scope": "icdapi_access"
-    }
+    if local_results is None: # Should be an empty list if no results, None if error in local_search_diseases
+        print(f"Error or no data from local_search_diseases for '{search_term}'.")
+        return ([], "LOCAL_SEARCH_ERROR_OR_NO_DATA")
 
-    try:
-        response = requests.post(TOKEN_URL, data=payload, timeout=10) # Added timeout
-        response.raise_for_status()  # Raises an HTTPError for bad responses (4XX or 5XX)
+    formatted_results = []
+    for disease in local_results:
+        formatted_results.append({
+            "id": disease.get("code"),    # Use disease code as 'id'
+            "label": disease.get("name")  # Use disease name as 'label'
+            # "raw_title": disease.get("name"), # Optional: if more detail was needed
+            # "raw_id": disease.get("code")
+        })
+
+    # print(f"Formatted results for '{search_term}': {formatted_results[:3]}") # Debug: first 3 results
+    return (formatted_results, "SUCCESS")
+
+
+def get_entity(entity_code): # Parameter changed from entity_uri
+    """
+    Retrieves entity details from local_icd_service using the disease code.
+    """
+    # print(f"icd_api_service.get_entity fetching details for code: {entity_code}")
+    disease_details = local_get_disease_details(entity_code)
+
+    if disease_details:
+        # The returned structure is {'code': ..., 'name': ..., 'description': ..., 'inclusions': ...}
+        # This is returned directly. The calling code might need adaptation if it
+        # expected the exact WHO API structure.
+        return (disease_details, "SUCCESS")
+    else:
+        return (None, "NOT_FOUND_LOCAL")
+
+
+def get_icd_chapters(release_uri_or_dummy=None): # Parameter ignored
+    """
+    Retrieves chapter list from local_icd_service.
+    Transforms data to: [{'id': 'local_chapter_XX', 'title': {'@value': 'Chapter Title'}}, ...]
+    """
+    # print("icd_api_service.get_icd_chapters called")
+    local_chapters = local_get_chapters() # Returns [{'chapter_id': '01', 'chapter_title': 'Title'}]
+
+    if local_chapters is None: # Should be an empty list if no chapters, None if error
+        print("Error or no data from local_get_chapters.")
+        return ([], "LOCAL_CHAPTERS_ERROR_OR_NO_DATA")
         
-        token_data = response.json()
-        _cached_token = token_data.get("access_token")
-        expires_in = token_data.get("expires_in", TOKEN_VALIDITY_SECONDS) # Use provided or default
-        _token_expiry_time = time.time() + expires_in - TOKEN_EXPIRY_BUFFER
-        
-        # print(f"New token obtained, expires in approx {expires_in // 60} minutes.") # For debugging
-        return (_cached_token, "SUCCESS")
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Error requesting ICD API token: {e}")
-        _cached_token = None # Clear cache on error
-        _token_expiry_time = 0
-        return (None, "TOKEN_REQUEST_FAILED")
-    except json.JSONDecodeError:
-        print("Error: Could not decode JSON response from token endpoint.")
-        _cached_token = None
-        _token_expiry_time = 0
-        return (None, "TOKEN_REQUEST_FAILED") # Group JSONDecodeError with token request failures
+    transformed_chapters = []
+    for chapter in local_chapters:
+        chapter_id_str = chapter.get("chapter_id", "unknown")
+        transformed_chapters.append({
+            "id": f"local_chapter_{chapter_id_str}", # Construct a unique ID
+            "title": {
+                "@value": chapter.get("chapter_title", "No Title")
+            },
+            # "classKind": "Chapter" # Add if necessary for compatibility
+        })
 
-
-def search_icd_codes(search_term): # Removed override parameters
-    token, token_status = get_icd_api_token() # Call without overrides
-    # Also handle "SUCCESS_FROM_CACHE" as a success
-    if token_status not in ["SUCCESS", "SUCCESS_FROM_CACHE"]:
-        print(f"Error: Could not retrieve API token for ICD search. Status: {token_status}")
-        return (None, token_status) # Propagate the error status
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-        "Accept-Language": "es", # As per user's example
-        "API-Version": "v2" # Added API-Version header
-    }
-    params = {
-        "q": search_term,
-        # "useFlexisearch": "true" # Might be useful for more flexible search
-    }
-
-    try:
-        response = requests.get(SEARCH_URL_BASE, headers=headers, params=params, timeout=10)
-        response.raise_for_status()
-        
-        results = response.json()
-        
-        # Transform results into the desired format: list of {'id': ..., 'label': ...}
-        # Based on user example: item["title"]["@value"], item["id"]
-        # item["id"] is often a URI like "http://id.who.int/icd/entity/XXXXXXXXX"
-        # This URI can be used as the unique code.
-        
-        formatted_results = []
-        if results and "destinationEntities" in results and isinstance(results["destinationEntities"], list):
-            for item in results["destinationEntities"]:
-                title_info = item.get("title", "No title available") # Default to string if title is missing
-                if isinstance(title_info, dict):
-                    label = title_info.get("@value", "No title available")
-                elif isinstance(title_info, str):
-                    label = title_info # Use the string directly
-                else:
-                    label = "No title available" # Fallback for unexpected types
-
-                entity_id = item.get("id", None) # This is the URI
-                
-                if entity_id: # Only include if there's an ID
-                    formatted_results.append({
-                        "id": entity_id,  # This will be the "code" we store
-                        "label": label,
-                        "raw_title": item.get("title"), # For context if needed
-                        "raw_id": item.get("id")
-                    })
-        return (formatted_results, "SUCCESS")
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error searching ICD codes for '{search_term}': {e}")
-        return (None, "SEARCH_API_ERROR")
-    except json.JSONDecodeError:
-        print(f"Error: Could not decode JSON response from ICD search for '{search_term}'.")
-        return (None, "SEARCH_API_ERROR") # Group JSONDecodeError with search API errors
-
-
-def get_entity(entity_uri): # Removed override parameters
-    token, token_status = get_icd_api_token() # Call without overrides
-
-    if token_status not in ["SUCCESS", "SUCCESS_FROM_CACHE"]:
-        print(f"Error: Could not retrieve API token for get_entity({entity_uri}). Status: {token_status}")
-        return (None, token_status)
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-        "Accept-Language": "es", # Or make this a parameter if needed
-        "API-Version": "v2"
-    }
-
-    try:
-        response = requests.get(entity_uri, headers=headers, timeout=15)
-        response.raise_for_status()
-        return (response.json(), "SUCCESS")
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching entity {entity_uri}: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            print(f"Response status: {e.response.status_code}, content: {e.response.text[:200]}")
-        return (None, "ENTITY_REQUEST_FAILED")
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON for entity {entity_uri}: {e}")
-        return (None, "JSON_DECODE_ERROR")
-
-
-def get_icd_chapters(release_uri): # Removed override parameters
-    chapters_list = []
-
-    # Get the main release entity
-    release_data, status = get_entity(release_uri) # Call without overrides
-
-    if status != "SUCCESS":
-        print(f"Error fetching release URI {release_uri}. Status: {status}")
-        return (None, status)
-
-    if not release_data or 'child' not in release_data:
-        print(f"No 'child' property found in release data for {release_uri}.")
-        return (None, "NO_CHAPTERS_FOUND_IN_RELEASE_DATA")
-
-    chapter_uris = release_data.get('child', [])
-    print(f"Found {len(chapter_uris)} potential chapter URIs in {release_uri}.")
-
-    for i, chapter_uri in enumerate(chapter_uris): # Process all chapters
-        print(f"Fetching details for chapter URI ({i+1}/{len(chapter_uris)}): {chapter_uri}")
-        chapter_data, chapter_status = get_entity(chapter_uri) # Call without overrides
-        if chapter_status == "SUCCESS" and chapter_data:
-            chapters_list.append({
-                "id": chapter_data.get('@id', chapter_uri),
-                "title": chapter_data.get('title', {}), # Keep the title object
-                "classKind": chapter_data.get('classKind', 'N/A')
-            })
-        else:
-            print(f"Warning: Could not fetch details for chapter {chapter_uri}. Status: {chapter_status}")
-            # Optionally, add placeholder or error info to the list
-            chapters_list.append({
-                "id": chapter_uri,
-                "title": {"@value": "Error fetching title"},
-                "error_status": chapter_status
-            })
-
-    return (chapters_list, "SUCCESS")
+    # print(f"Transformed chapters: {transformed_chapters[:2]}") # Debug: first 2 chapters
+    return (transformed_chapters, "SUCCESS")
 
 
 if __name__ == '__main__':
-    # Example usage (for testing the service directly)
-    # Ensure ICD_API_CLIENT_ID and ICD_API_CLIENT_SECRET are set in your environment
-    print("Attempting to get a token...")
-    test_token = get_icd_api_token()
-    if test_token:
-        print(f"Successfully got a token (first few chars): {test_token[:10]}...")
-        
-        print("\nSearching for 'diabetes'...")
-        diabetes_results = search_icd_codes("diabetes")
-        if diabetes_results:
-            print(f"Found {len(diabetes_results)} results for 'diabetes':")
-            for res in diabetes_results[:5]: # Print first 5
-                print(f"  ID: {res['id']}, Label: {res['label']}")
-        else:
-            print("No results for 'diabetes' or error occurred.")
+    print("--- Testing icd_api_service.py with Local Data ---")
+    # Note: This test block assumes 'structured_icd_data.json' exists and is readable
+    # by local_icd_service.py. Run process_local_icd.py if needed.
 
-        print("\nSearching for 'gripe'...")
-        gripe_results = search_icd_codes("gripe") # Common cold/flu
-        if gripe_results:
-            print(f"Found {len(gripe_results)} results for 'gripe':")
-            for res in gripe_results[:5]:
-                print(f"  ID: {res['id']}, Label: {res['label']}")
-        else:
-            print("No results for 'gripe' or error occurred.")
-            
-        # Test token caching (call again)
-        print("\nAttempting to get a token again (should be cached)...")
-        test_token_2 = get_icd_api_token()
-        if test_token_2:
-            print(f"Successfully got a token (first few chars): {test_token_2[:10]}...")
-            if test_token == test_token_2:
-                print("Token was successfully retrieved from cache.")
-            else:
-                print("Token was re-fetched (unexpected for cache test).")
-
+    # Test 1: Search for codes
+    print("\n1. Searching for 'Cholera'...")
+    search_results, status = search_icd_codes("Cholera")
+    if status == "SUCCESS":
+        print(f"Found {len(search_results)} results for 'Cholera':")
+        for res in search_results[:5]: # Print first 5
+            print(f"  ID: {res.get('id')}, Label: {res.get('label')}")
     else:
-        print("Failed to get a token. Ensure environment variables are set.")
+        print(f"Search failed or no results. Status: {status}")
+
+    print("\n   Searching for 'Diabetes'...")
+    search_results_diabetes, status_diabetes = search_icd_codes("Diabetes")
+    if status_diabetes == "SUCCESS":
+        print(f"Found {len(search_results_diabetes)} results for 'Diabetes':")
+        for res in search_results_diabetes[:3]:
+            print(f"  ID: {res.get('id')}, Label: {res.get('label')}")
+    else:
+        print(f"Search for 'Diabetes' failed. Status: {status_diabetes}")
+
+
+    # Test 2: Get entity details
+    print("\n2. Getting details for entity code '1A00' (Cholera)...") # Example code
+    entity_details, status = get_entity("1A00")
+    if status == "SUCCESS" and entity_details:
+        print(f"Details for '1A00':")
+        print(f"  Code: {entity_details.get('code')}")
+        print(f"  Name: {entity_details.get('name')}")
+        print(f"  Description (first 100 chars): {entity_details.get('description', '')[:100]}...")
+        print(f"  Inclusions: {entity_details.get('inclusions')}")
+    else:
+        print(f"Could not get details for '1A00'. Status: {status}")
+
+    print("\n   Getting details for non-existent code 'XXXX'...")
+    non_existent_entity, status_ne = get_entity("XXXX")
+    if status_ne == "NOT_FOUND_LOCAL" and non_existent_entity is None:
+        print("Correctly handled non-existent entity 'XXXX'.")
+    else:
+        print(f"Error or unexpected result for non-existent entity. Status: {status_ne}, Details: {non_existent_entity}")
+
+
+    # Test 3: Get ICD Chapters
+    print("\n3. Getting ICD Chapters...")
+    chapters, status = get_icd_chapters()
+    if status == "SUCCESS":
+        print(f"Found {len(chapters)} chapters:")
+        for chapter in chapters[:3]: # Print first 3
+            print(f"  ID: {chapter.get('id')}, Title: {chapter.get('title', {}).get('@value')}")
+    else:
+        print(f"Could not retrieve chapters. Status: {status}")
+
+    print("\n--- End of Local Data Tests ---")
+
+    # To run these tests, ensure:
+    # 1. `local_icd_service.py` is in the same directory or Python path.
+    # 2. `structured_icd_data.json` exists in the location expected by `local_icd_service.py`
+    #    (usually project root, generated by `process_local_icd.py`).
+    #    Run `python process_local_icd.py` if this file is missing or outdated.
+    #
+    # Example:
+    # python process_local_icd.py
+    # python icd_api_service.py
+    #
+    # If local_icd_service itself needs a Flask app context for any of its operations
+    # (not typically for file-based loading but good to be aware of), this test block
+    # might need to be wrapped in `with app.app_context():`.
+    # However, `local_icd_service.py` as defined earlier primarily loads from a JSON file
+    # and does not require an app context for its core functions.
