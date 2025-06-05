@@ -26,7 +26,7 @@ class Paciente(db.Model):
     direccion = db.Column(db.String(200))
     correo = db.Column(db.String(120))
 
-    historias = db.relationship('HistoriaClinica', backref='paciente', lazy=True)
+    historias = db.relationship('HistoriaClinica', backref='paciente', lazy=True, cascade="all, delete-orphan")
     citas = db.relationship('Cita', backref='paciente_cita', lazy=True, cascade="all, delete-orphan")
     facturas = db.relationship('Factura', backref='paciente', lazy='dynamic', cascade="all, delete-orphan")
 
@@ -47,8 +47,6 @@ class HistoriaClinica(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     motivo = db.Column(db.String(255), nullable=False)
-    diagnostico = db.Column(db.String(255), nullable=True) # This might be deprecated or used differently now
-    tratamiento = db.Column(db.String(255), nullable=True) # This might be deprecated or used differently now
     observaciones = db.Column(db.Text, nullable=True)
 
     # Clave foránea que relaciona con el paciente
@@ -77,8 +75,6 @@ class Cita(db.Model):
     motivo = db.Column(db.String(255), nullable=False)
     notas = db.Column(db.Text, nullable=True)
 
-    # Consider adding a relationship to Paciente if needed for easy access from Cita to Paciente details
-    # paciente = db.relationship('Paciente', backref=db.backref('citas_paciente', lazy=True)) 
     # The backref on Paciente model will handle the other side.
 
 

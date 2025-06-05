@@ -1,8 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, login_required, logout_user
 from models import db, User, Paciente, HistoriaClinica, Cita, Diagnostico, Tratamiento, Factura, ItemFactura # Asegúrate de importar User desde models.py
-from models import Paciente
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from icd_api_service import search_icd_codes, get_icd_chapters
@@ -720,8 +718,7 @@ def marcar_factura_pagada(factura_id):
 def list_icd_chapters():
     # Route to list ICD chapters
     # The release_uri is no longer used as data is sourced locally.
-    # chapters_data, status = get_icd_chapters(release_uri) # Old call
-    chapters_data, status = get_icd_chapters() # Call without release_uri
+    chapters_data, status = get_icd_chapters()
 
     chapters_for_template = []
     if status == "SUCCESS":

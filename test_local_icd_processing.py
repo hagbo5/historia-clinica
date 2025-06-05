@@ -3,7 +3,6 @@ from unittest.mock import patch, mock_open
 import json
 import os
 import tempfile
-import time
 
 # Modules to be tested
 import process_local_icd
@@ -61,14 +60,21 @@ class TestProcessLocalICD(unittest.TestCase):
             }
         ]
 
-    @patch("json.load")
-    @patch("builtins.open", new_callable=mock_open)
-    def test_parse_icd_json_simple(self, mock_file_open, mock_json_load):
-        # Configure the mock for json.load to return our sample list of strings
-        mock_json_load.return_value = self.sample_raw_icd_data_list
+    @patch("json.load")  # Decorator for json.load
+    def test_parse_icd_json_simple(self, mock_for_json_load):
+        # mock_for_json_load is the mock for json.load
 
-        # Call the function (file_path is arbitrary due to mocking)
-        result = process_local_icd.parse_icd_json("dummy_path.json")
+        # Configure the mock for json.load to return our sample list of strings
+        mock_for_json_load.return_value = self.sample_raw_icd_data_list
+
+        # Patch 'open' within 'process_local_icd' module for the scope of this 'with' block
+        # mock_open() creates a mock that simulates the open function and its file handle.
+        with patch('process_local_icd.open', mock_open()) as mock_open_function_itself:
+            # mock_open_function_itself is the mock replacing 'open' in process_local_icd.py
+            # Its return_value is the file handle mock, which mock_open() configures to be a context manager.
+            result = process_local_icd.parse_icd_json("dummy_path.json")
+
+        # Assertions
 
         # Assertions
         self.assertIsNotNone(result)
