@@ -11,7 +11,7 @@ from unittest.mock import patch, MagicMock
 
 from index import app, db
 from models import Paciente, HistoriaClinica, User # Assuming User is needed for context or future tests
-from icd_api_service import get_icd_api_token, search_icd_codes
+from icd_api_service import search_icd_codes
 
 class BaseTestCase(unittest.TestCase):
     @classmethod

@@ -1,11 +1,9 @@
 import json
-import time # Keep for any future time-related logic, though not strictly needed for current local ops
 
 # Import local services
 try:
     from local_icd_service import (
         get_chapters as local_get_chapters,
-        get_chapter_details as local_get_chapter_details, # Not used in this refactor directly by API service functions
         get_disease_details as local_get_disease_details,
         search_diseases as local_search_diseases
     )
@@ -13,27 +11,10 @@ except ImportError:
     print("Error: Could not import from local_icd_service. Make sure it's in the Python path.")
     # Define dummy functions to allow script to load for inspection if local_icd_service is missing
     def local_get_chapters(): return []
-    def local_get_disease_details(code): return None
-    def local_search_diseases(term): return []
+    def local_get_disease_details(_code): return None
+    def local_search_diseases(_term): return []
 
 # --- Configuration & Token Logic (Commented out or Removed) ---
-# TOKEN_URL = "https://icdaccessmanagement.who.int/connect/token"
-# SEARCH_URL_BASE = "https://id.who.int/icd/release/11/2023-01/mms/search"
-# _cached_token = None
-# _token_expiry_time = 0
-# TOKEN_VALIDITY_SECONDS = 3600
-# TOKEN_EXPIRY_BUFFER = 60
-
-# load_dotenv() # Removed, assuming no .env needed for local operations directly in this file
-
-def get_icd_api_token():
-    """
-    This function is no longer active as we are using local data.
-    Returns a dummy value.
-    """
-    # print("get_icd_api_token: Now using local data, API token not required.")
-    return (None, "LOCAL_DATA_MODE")
-
 
 def search_icd_codes(search_term):
     """
@@ -79,7 +60,7 @@ def get_entity(entity_code): # Parameter changed from entity_uri
         return (None, "NOT_FOUND_LOCAL")
 
 
-def get_icd_chapters(release_uri_or_dummy=None): # Parameter ignored
+def get_icd_chapters():
     """
     Retrieves chapter list from local_icd_service.
     Transforms data to: [{'id': 'local_chapter_XX', 'title': {'@value': 'Chapter Title'}}, ...]
