@@ -9,6 +9,7 @@ def parse_icd_json(file_path="icd_data.json"):
     try:
         with open(file_path, 'r') as f:
             raw_data = json.load(f)
+        print(f"DEBUG: Successfully read {len(raw_data)} lines/items from {file_path}.")
     except FileNotFoundError:
         print(f"Error: File not found at {file_path}")
         return None
@@ -149,6 +150,9 @@ def parse_icd_json(file_path="icd_data.json"):
         if ch.get("diseases") or (ch.get("chapter_title") and ch.get("chapter_title") != ch.get("chapter_id")): # chapter_id is "01", title should be more
              final_chapters.append(ch)
 
+    print(f"DEBUG: Parser produced {len(final_chapters)} chapter structures.")
+    if not final_chapters and raw_data:
+        print("DEBUG: Warning: Raw data was present in icd_data.json, but no valid chapter structures were parsed. Check data format compatibility with parser regexes.")
     return final_chapters
 
 def save_structured_data(data, output_filepath="structured_icd_data.json"):
@@ -183,6 +187,9 @@ def extract_diagnostico_data(parsed_data):
                     "codigo": disease.get("code", "N/A"),
                     "descripcion": disease.get("name", "N/A")
                 })
+    print(f"DEBUG: Extractor found {len(diagnostico_entries)} disease entries from {len(parsed_data) if parsed_data else 0} parsed chapter structure(s).")
+    if not diagnostico_entries and parsed_data:
+        print("DEBUG: Warning: Chapters were parsed, but no disease entries could be extracted from them. Check chapter content and disease definitions.")
     return diagnostico_entries
 
 
