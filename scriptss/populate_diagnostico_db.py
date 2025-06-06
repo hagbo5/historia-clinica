@@ -99,6 +99,7 @@ def populate_diagnosticos():
 
     print(f"Population summary: {added_count} added, {updated_count} updated.")
     print("Diagnostico population process finished.")
+    print(f"DEBUG: Final summary - Added: {added_count}, Updated: {updated_count}.")
 
 if __name__ == "__main__":
     print("--- Starting Diagnostico Database Population Script ---")
@@ -119,7 +120,7 @@ if __name__ == "__main__":
     with app.app_context():
         print("Flask application context pushed.")
         # Optional: Initialize DB if it's not done automatically on app context for scripts
-        # db.create_all() # Usually not needed if app is set up for this,
+        db.create_all() # Usually not needed if app is set up for this,
                           # and can be dangerous if migrations are used.
                           # Assuming tables already exist.
         populate_diagnosticos()
